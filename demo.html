@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dardanialabs-footer Component Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { margin-bottom: 1rem; }
+    h2 { margin: 2rem 0 1rem; color: #334155; }
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.875rem;
+    }
+    .example {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+    .example-label {
+      background: #f1f5f9;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      color: #64748b;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .footer-wrapper {
+      background: #0f172a;
+      color: white;
+      padding: 0.5rem 1rem;
+    }
+    .footer-wrapper-gold {
+      background: #3D3228;
+      color: #FDF8F3;
+      padding: 0.5rem 1rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>dardanialabs-footer Component</h1>
+    <p>A generic footer web component. Inherits all styles from parent.</p>
+
+    <h2>Installation</h2>
+    <pre>&lt;script defer src="https://cdn.dardanialabs.io/components/v1.0.0/dardanialabs-footer.js"&gt;&lt;/script&gt;</pre>
+
+    <h2>Usage</h2>
+    <p>Wrap the component in a styled container:</p>
+
+    <div class="example">
+      <div class="example-label">Dark theme (centered)</div>
+      <div class="footer-wrapper">
+        <dardanialabs-footer
+          company="Example Company AS"
+          founded="2020"
+          instagram="https://instagram.com/example"
+          facebook="https://facebook.com/example"
+          developer="Dardania Labs"
+          developer-url="https://dardanialabs.io"
+        ></dardanialabs-footer>
+      </div>
+    </div>
+
+    <pre>&lt;div style="background: #0f172a; color: white;"&gt;
+  &lt;dardanialabs-footer
+    company="Example Company AS"
+    founded="2020"
+    instagram="https://instagram.com/example"
+    facebook="https://facebook.com/example"
+    developer="Dardania Labs"
+    developer-url="https://dardanialabs.io"
+  &gt;&lt;/dardanialabs-footer&gt;
+&lt;/div&gt;</pre>
+
+    <div class="example">
+      <div class="example-label">Gold theme (centered)</div>
+      <div class="footer-wrapper-gold">
+        <dardanialabs-footer
+          company="Golden Studio"
+          founded="2024"
+          instagram="https://instagram.com/example"
+          developer="Dardania Labs"
+          developer-url="https://dardanialabs.io"
+        ></dardanialabs-footer>
+      </div>
+    </div>
+
+    <div class="example">
+      <div class="example-label">Left-aligned</div>
+      <div class="footer-wrapper">
+        <dardanialabs-footer
+          company="Corner Shop AS"
+          founded="2023"
+          facebook="https://facebook.com/example"
+          developer="Dardania Labs"
+          developer-url="https://dardanialabs.io"
+          align="start"
+        ></dardanialabs-footer>
+      </div>
+    </div>
+
+    <div class="example">
+      <div class="example-label">Minimal (no socials, no developer)</div>
+      <div class="footer-wrapper">
+        <dardanialabs-footer
+          company="Corner Shop"
+          founded="2023"
+        ></dardanialabs-footer>
+      </div>
+    </div>
+
+    <h2>Attributes</h2>
+    <pre>company       - Company name
+founded       - Year founded (shows range if different from current year)
+facebook      - Facebook URL
+instagram     - Instagram URL
+x             - X (Twitter) URL
+snapchat      - Snapchat URL
+linkedin      - LinkedIn URL
+developer     - Developer/agency name
+developer-url - Developer website URL
+align         - Content alignment: start, center (default), end</pre>
+  </main>
+
+  <script src="src/dardanialabs-footer.js"></script>
+</body>
+</html>
