@@ -8,7 +8,8 @@
  * clear sections:
  *
  *   shared    → validators every tenant can use by key   (email, required, name, message)
- *   extras    → opt-in / reusable rules + where tenant-specific ones go   (e.g. code)
+ *   extras    → rules reused across MULTIPLE tenants (empty for now). A rule for ONE
+ *               tenant (e.g. digital_detox's booking code) is defined in THAT app, not here.
  *   patterns  → named regexes the rules point at
  *   messages  → language-specific text  (no / en / sq) — add a language by adding a key
  *
@@ -39,15 +40,15 @@ export const CONFIG = {
 		message: { rule: 'required', message: 'message' },
 	},
 
-	// ── extras ── opt-in / reusable rules; add tenant-specific ones here too
-	extras: {
-		code: { rule: 'pattern', pattern: 'code', message: 'code' }, // digital_detox booking code
-	},
+	// ── extras ── reusable rules shared by MULTIPLE tenants go here. A rule that is
+	// specific to ONE tenant (e.g. digital_detox's booking code) does NOT belong in
+	// this shared list — that tenant defines it in its OWN app with a custom
+	// function / makeValidator(). Empty for now on purpose.
+	extras: {},
 
 	// ── patterns ── named regexes the rules above reference (strings, so this stays JSON)
 	patterns: {
 		email: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
-		code: '^[A-ZÆØÅ]{3}[0-9]{2}$', // 3 letters + 2 digits, e.g. ABC12
 	},
 
 	// ── messages ── language-specific text; message keys are shared across languages
@@ -57,21 +58,18 @@ export const CONFIG = {
 			name: 'Skriv inn navnet ditt.',
 			email: 'Skriv inn en gyldig e-postadresse.',
 			message: 'Skriv en melding.',
-			code: 'Koden må være 3 bokstaver etterfulgt av 2 siffer – 5 tegn totalt.',
 		},
 		en: {
 			required: 'This field is required.',
 			name: 'Please enter your name.',
 			email: 'Please enter a valid email address.',
 			message: 'Please write a message.',
-			code: 'The code must be 3 letters followed by 2 digits — 5 characters in total.',
 		},
 		sq: {
 			required: 'Kjo fushë është e detyrueshme.',
 			name: 'Ju lutem shkruani emrin tuaj.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Ju lutem shkruani një mesazh.',
-			code: 'Kodi duhet të ketë 3 shkronja të ndjekura nga 2 shifra — gjithsej 5 karaktere.',
 		},
 	},
 };
