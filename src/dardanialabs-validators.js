@@ -7,9 +7,11 @@
  *
  *   SHARED  → COMMON regexes, defined ONCE and used by every language (e.g. email).
  *   NO / EN / SQ → per-language blocks, each with:
- *       MESSAGES → the localized text for every validator key
+ *       MESSAGES → the localized ERROR text for every validator key (shown on failure)
  *       REGEX    → regexes that are SPECIFIC to this language (e.g. phone: country
  *                  prefix + digit count). A language REGEX overrides SHARED for that key.
+ *       HINT     → optional localized HELPER text guiding input (e.g. "e.g. +47 900 00 000").
+ *                  Distinct from MESSAGES: a hint guides, a message reports a failure.
  *
  * Rule inference: if a key has a regex (its language REGEX, else SHARED) it is a
  * pattern check; if it has no regex it is a required (non-empty) check. Add a
@@ -49,6 +51,9 @@ export const CONFIG = {
 		REGEX: {
 			phone: '^(?:(?:\\+47[\\s]?)?\\d{8})?$', // Norway: +47 + 8 digits (empty ok → optional)
 		},
+		HINT: {
+			phone: 'F.eks. +47 900 00 000',
+		},
 	},
 
 	// ── EN ── English
@@ -63,6 +68,9 @@ export const CONFIG = {
 		REGEX: {
 			phone: '^(?:\\+?\\d{7,15})?$', // generic international
 		},
+		HINT: {
+			phone: 'e.g. +47 900 00 000',
+		},
 	},
 
 	// ── SQ ── Shqip
@@ -76,6 +84,9 @@ export const CONFIG = {
 		},
 		REGEX: {
 			phone: '^(?:(?:\\+383|\\+355|0)?\\d{8,9})?$', // Kosovo/Albania: 8–9 digits
+		},
+		HINT: {
+			phone: 'p.sh. +383 44 000 000',
 		},
 	},
 };
@@ -104,6 +115,12 @@ export const validate = (value, key, lang = DEFAULT_LANG, config = CONFIG) => {
 	const v = trim(value);
 	if (regex) return new RegExp(regex).test(v) ? '' : message; // pattern rule
 	return v.length > 0 ? '' : message; // no regex → required rule
+};
+
+/** The localized HELPER hint for a field ('' if none). Guides input; not an error. */
+export const hint = (key, lang = DEFAULT_LANG, config = CONFIG) => {
+	const block = langBlock(config, lang);
+	return (block && block.HINT && block.HINT[key]) || '';
 };
 
 /** First failing rule among a list (keys or validator objects/functions). '' if all pass. */
