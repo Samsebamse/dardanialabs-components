@@ -426,9 +426,11 @@ class DardaniaLabsMailform extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
 
+    // UX: errors surface only on submit. Leaving a field (blur) or editing it
+    // CLEARS its warning — we never nag the user just for tabbing away.
     ['name', 'email', 'message'].forEach((name) => {
       const el = this.field(name);
-      el?.addEventListener('blur', () => this.validate(name));
+      el?.addEventListener('blur', () => this.setError(name, ''));
       el?.addEventListener('input', () => this.setError(name, ''));
     });
 
@@ -437,11 +439,7 @@ class DardaniaLabsMailform extends HTMLElement {
       const el = this.field(key);
       el?.addEventListener('input', () => this.setError(key, ''));
       el?.addEventListener('change', () => this.setError(key, ''));
-      if (f.required) {
-        el?.addEventListener('blur', () => {
-          this.setError(key, (el.value || '').trim() ? '' : this.t.requiredErr);
-        });
-      }
+      el?.addEventListener('blur', () => this.setError(key, ''));
     });
 
     if (this.requireCode) {
@@ -461,7 +459,7 @@ class DardaniaLabsMailform extends HTMLElement {
       });
       code.addEventListener('blur', () => {
         tip.classList.remove('show');
-        this.validate('code');
+        this.setError('code', '');
       });
     }
   }

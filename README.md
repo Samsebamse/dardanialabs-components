@@ -14,9 +14,9 @@ elements — no framework, no build step, one `<script>` tag per component.
 Always pin a **version** on live sites — published versions are immutable:
 
 ```html
-<script defer src="https://cdn.dardanialabs.io/components/v1.0.0/dardanialabs-footer.js"></script>
-<script defer src="https://cdn.dardanialabs.io/components/v1.0.0/dardanialabs-photoslider.js"></script>
-<script defer src="https://cdn.dardanialabs.io/components/v1.0.0/dardanialabs-mailform.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.1/src/dardanialabs-footer.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.1/src/dardanialabs-photoslider.js"></script>
+<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.1/src/dardanialabs-mailform.js"></script>
 ```
 
 Upgrading a site = bumping the version in that one line.

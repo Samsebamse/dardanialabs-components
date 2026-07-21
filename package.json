@@ -1,6 +1,6 @@
 {
   "name": "dardanialabs-components",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Framework-free web components: footer, photo slider, mail form. One script tag per component, no build step.",
   "type": "module",
   "license": "MIT",
