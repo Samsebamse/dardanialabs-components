@@ -41,6 +41,8 @@ export const CONFIG = {
 		// email: local ≥2, domain label ≥2, a dot, then a TLD of ≥2 letters
 		// (covers vg.no, .com, .io, and newer/longer TLDs like .info, .shop, .online).
 		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,}$',
+		// message: the big textarea — 10 to 2000 characters ([\s\S] so newlines count).
+		message: '^[\\s\\S]{10,2000}$',
 	},
 
 	// ── NO ── Norsk
@@ -49,7 +51,7 @@ export const CONFIG = {
 			required: 'Dette feltet er påkrevd.',
 			name: 'Navnet må ha minst 2 bokstaver.',
 			email: 'Skriv inn en gyldig e-postadresse.',
-			message: 'Skriv en melding.',
+			message: 'Meldingen må være mellom 10 og 2000 tegn.',
 			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. +47 900 00 000).',
 		},
 		REGEX: {
@@ -63,7 +65,7 @@ export const CONFIG = {
 			required: 'This field is required.',
 			name: 'Your name must be at least 2 letters.',
 			email: 'Please enter a valid email address.',
-			message: 'Please write a message.',
+			message: 'Message must be between 10 and 2000 characters.',
 			phone: 'A valid phone number (e.g. +47 900 00 000).',
 		},
 		REGEX: {
@@ -77,7 +79,7 @@ export const CONFIG = {
 			required: 'Kjo fushë është e detyrueshme.',
 			name: 'Emri duhet të ketë të paktën 2 shkronja.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
-			message: 'Ju lutem shkruani një mesazh.',
+			message: 'Mesazhi duhet të jetë 10 deri në 2000 karaktere.',
 			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',
 		},
 		REGEX: {
