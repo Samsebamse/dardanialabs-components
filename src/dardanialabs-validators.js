@@ -38,8 +38,9 @@ export const CONFIG = {
 	SHARED: {
 		// name: at least 2 letters (so "Jo" is valid); letters + spaces/'/-/. between.
 		name: '^\\p{L}[\\p{L}\\s\'.-]*\\p{L}$',
-		// email: local ≥2, domain label ≥2, a dot, then a TLD of ≥2 letters.
-		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,}$',
+		// email: local ≥2, domain label ≥2, a dot, then a TLD of 2 OR 3 letters
+		// (covers vg.no, db.no, .com, .io …). NOTE: rejects 4+ letter TLDs (.info, .store).
+		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,3}$',
 	},
 
 	// ── NO ── Norsk
