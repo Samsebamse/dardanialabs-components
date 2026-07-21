@@ -156,6 +156,14 @@ class DardaniaLabsMailform extends HTMLElement {
     return !message;
   }
 
+  // Is a validation message currently visible for this field? Used to drive
+  // live re-validation: we only re-check WHILE typing if an error is already
+  // showing, so a pristine field is never nagged before submit/blur.
+  hasError(name) {
+    const error = this.shadowRoot.querySelector(`.error[data-for="${name}"]`);
+    return Boolean(error && error.textContent);
+  }
+
   validate(name) {
     const t = this.t;
     const value = (this.field(name)?.value || '').trim();
@@ -426,19 +434,22 @@ class DardaniaLabsMailform extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
 
-    // UX: errors surface only on submit. Leaving a field (blur) or editing it
-    // CLEARS its warning — we never nag the user just for tabbing away.
+    // UX: an error appears only on submit (or persists from a prior submit).
+    // WHILE it's showing, typing re-validates live and the message disappears the
+    // instant the value becomes valid. Leaving the field (blur) also clears it.
+    // A pristine field is never nagged just for being focused/tabbed through.
     ['name', 'email', 'message'].forEach((name) => {
       const el = this.field(name);
+      el?.addEventListener('input', () => { if (this.hasError(name)) this.validate(name); });
       el?.addEventListener('blur', () => this.setError(name, ''));
-      el?.addEventListener('input', () => this.setError(name, ''));
     });
 
     this.extraFields.forEach((f) => {
       const key = `x-${f.name}`;
       const el = this.field(key);
-      el?.addEventListener('input', () => this.setError(key, ''));
-      el?.addEventListener('change', () => this.setError(key, ''));
+      const revalidate = () => { if (this.hasError(key)) this.setError(key, (el.value || '').trim() ? '' : this.t.requiredErr); };
+      el?.addEventListener('input', revalidate);
+      el?.addEventListener('change', revalidate);
       el?.addEventListener('blur', () => this.setError(key, ''));
     });
 
@@ -449,10 +460,10 @@ class DardaniaLabsMailform extends HTMLElement {
         // live-format: uppercase, letters/digits only, max 5 chars
         const clean = code.value.toUpperCase().replace(/[^A-ZÆØÅ0-9]/g, '').slice(0, 5);
         if (clean !== code.value) code.value = clean;
-        this.setError('code', '');
         const valid = this.codePattern.test(code.value);
         code.classList.toggle('valid', valid);
         tip.classList.toggle('show', !valid);
+        if (this.hasError('code')) this.validate('code'); // live-clear once valid
       });
       code.addEventListener('focus', () => {
         if (!this.codePattern.test(code.value)) tip.classList.add('show');
