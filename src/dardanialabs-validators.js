@@ -3,24 +3,28 @@
  * dardanialabs-mailform web component + app-level contact/booking mail forms such
  * as digital_detox's BookPage). NOT used by other components (footer, photoslider).
  *
- * One JSON-shaped CONFIG object with flat top-level keys:
+ * One JSON-shaped CONFIG. Each validator is SELF-CONTAINED under its own key —
+ * its rule, regex and messages all live together:
  *
- *   SHARED → validators whose rule is the SAME in every language (email, required,
- *            name, message). Rule + regex live here; each language only supplies text.
- *   NO / EN / SQ → per-language catalogs. An entry is either:
- *              • a STRING  → the message for a SHARED validator of that key, OR
- *              • an OBJECT  → a LANGUAGE-SPECIFIC validator { rule, pattern, message }
- *                for rules that genuinely differ per locale — e.g. a phone number's
- *                country prefix and digit count. The rule lives IN the language.
- *            Add a language by adding a new top-level catalog (e.g. DE) + entries.
+ *   SHARED: {
+ *     <key>: {
+ *       rule:    'required' | 'pattern' | …,
+ *       pattern: '<regex>'                       // one regex for every language, OR
+ *              | { no:'<regex>', en:'…', sq:'…' } // a per-language regex when the rule
+ *                                                  //   is locale-specific (e.g. phone)
+ *       message: { no:'…', en:'…', sq:'…' }       // the localized text/description
+ *     }
+ *   }
  *
- * A tenant-specific rule (e.g. digital_detox's booking code) is NOT added here —
- * that tenant defines it in its OWN app (see the three ways below).
+ * `email` uses one regex for all languages; `phone` varies its regex per language
+ * (country prefix + digit count). Add a language by adding its key to every
+ * `pattern`/`message` object. A tenant-specific rule (e.g. digital_detox's booking
+ * code) is NOT added here — that tenant defines it in its OWN app (three ways below).
  *
  * Usage:
  *   import { validate, validateAll, makeValidator, CONFIG } from './dardanialabs-validators.js';
- *   validate(form.email, 'email', lang);      // SHARED rule + localized message
- *   validate(form.phone, 'phone', lang);      // language-specific rule + message
+ *   validate(form.email, 'email', lang);      // '' when valid, else localized message
+ *   validate(form.phone, 'phone', lang);      // uses the language's own regex + message
  *   validateAll(form.email, ['required', 'email'], lang);
  *
  *   // A tenant's OWN unique rule, three ways:
@@ -28,98 +32,72 @@
  *   validate(form.age, (v) => Number(v) >= 18 ? '' : 'Må være 18+', lang);
  *   //  (2) makeValidator() for a function WITH per-language messages:
  *   validate(form.vat, makeValidator(fn, { no:'…', en:'…', sq:'…' }), lang);
- *   //  (3) compose your OWN config (SHARED + language catalogs) and pass it in:
- *   validate(form.code, 'code', lang, MY_APP_CONFIG);
+ *   //  (3) compose your OWN config and pass it in:  validate(v, 'code', lang, MY_CONFIG);
  */
 
 export const CONFIG = {
-	// ── SHARED ── validators whose rule/regex is identical in every language.
+	// Shared validators. Each key is self-contained: rule + regex + messages.
 	SHARED: {
-		required: { rule: 'required' },
-		name: { rule: 'required' },
-		email: { rule: 'pattern', pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$' },
-		message: { rule: 'required' },
-	},
-
-	// ── NO ── Norsk. Strings = messages for SHARED rules; objects = NO-specific rules.
-	NO: {
-		required: 'Dette feltet er påkrevd.',
-		name: 'Skriv inn navnet ditt.',
-		email: 'Skriv inn en gyldig e-postadresse.',
-		message: 'Skriv en melding.',
-		// Norwegian phone: 8 digits, optional +47 prefix (empty allowed → optional field)
-		phone: {
-			rule: 'pattern',
-			pattern: '^(?:(?:\\+47[\\s]?)?\\d{8})?$',
-			message: 'Skriv inn et gyldig norsk telefonnummer (8 siffer).',
+		required: {
+			rule: 'required',
+			message: { no: 'Dette feltet er påkrevd.', en: 'This field is required.', sq: 'Kjo fushë është e detyrueshme.' },
 		},
-	},
-
-	// ── EN ── English. Generic international phone format.
-	EN: {
-		required: 'This field is required.',
-		name: 'Please enter your name.',
-		email: 'Please enter a valid email address.',
-		message: 'Please write a message.',
-		phone: {
-			rule: 'pattern',
-			pattern: '^(?:\\+?\\d{7,15})?$',
-			message: 'Please enter a valid phone number.',
+		name: {
+			rule: 'required',
+			message: { no: 'Skriv inn navnet ditt.', en: 'Please enter your name.', sq: 'Ju lutem shkruani emrin tuaj.' },
 		},
-	},
-
-	// ── SQ ── Shqip. Kosovo (+383) / Albania (+355), 8–9 digits.
-	SQ: {
-		required: 'Kjo fushë është e detyrueshme.',
-		name: 'Ju lutem shkruani emrin tuaj.',
-		email: 'Ju lutem shkruani një adresë email të vlefshme.',
-		message: 'Ju lutem shkruani një mesazh.',
+		email: {
+			rule: 'pattern',
+			pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$', // same regex for every language
+			message: { no: 'Skriv inn en gyldig e-postadresse.', en: 'Please enter a valid email address.', sq: 'Ju lutem shkruani një adresë email të vlefshme.' },
+		},
+		message: {
+			rule: 'required',
+			message: { no: 'Skriv en melding.', en: 'Please write a message.', sq: 'Ju lutem shkruani një mesazh.' },
+		},
 		phone: {
 			rule: 'pattern',
-			pattern: '^(?:(?:\\+383|\\+355|0)?\\d{8,9})?$',
-			message: 'Ju lutem shkruani një numër telefoni valid.',
+			// locale-specific regex: prefix + digit count differ per country (empty allowed → optional)
+			pattern: {
+				no: '^(?:(?:\\+47[\\s]?)?\\d{8})?$', // Norway: +47 + 8 digits
+				en: '^(?:\\+?\\d{7,15})?$', // generic international
+				sq: '^(?:(?:\\+383|\\+355|0)?\\d{8,9})?$', // Kosovo/Albania: 8–9 digits
+			},
+			message: { no: 'Skriv inn et gyldig norsk telefonnummer (8 siffer).', en: 'Please enter a valid phone number.', sq: 'Ju lutem shkruani një numër telefoni valid.' },
 		},
 	},
 };
 
-export const LANGS = Object.keys(CONFIG).filter((k) => k !== 'SHARED').map((k) => k.toLowerCase());
+export const LANGS = Object.keys(CONFIG.SHARED.email.message); // ['no', 'en', 'sq']
 export const DEFAULT_LANG = 'no';
 
 const trim = (v) => String(v ?? '').trim();
-// pick a language catalog (case-insensitive lang), falling back to the default
-const catalog = (config, lang) =>
-	config[String(lang || DEFAULT_LANG).toUpperCase()] || config[DEFAULT_LANG.toUpperCase()];
+// pattern may be one string (all langs) or a per-language map — pick the right one
+const patternFor = (def, lang) =>
+	def.pattern && typeof def.pattern === 'object' ? def.pattern[lang] || def.pattern[DEFAULT_LANG] : def.pattern;
+// message may be a plain string or a per-language map
+const messageFor = (def, lang) => {
+	const m = def.message || def.msg;
+	return typeof m === 'string' ? m : (m && (m[lang] || m[DEFAULT_LANG])) || '';
+};
 
 // ── engine ── how each rule TYPE decides validity. Add types here as needs grow.
 const RULES = {
 	required: (value) => trim(value).length > 0,
-	pattern: (value, def) => new RegExp(def.pattern).test(trim(value)),
+	pattern: (value, def, lang) => new RegExp(patternFor(def, lang)).test(trim(value)),
 	_fn: (value, def) => Boolean(def._test?.(value)), // makeValidator() escape hatch
 };
 
-// Run a validator definition; return its message when it FAILS, else ''.
-const run = (value, def, lang, messageFallback) => {
-	const rule = RULES[def.rule];
-	if (!rule || rule(value, def)) return ''; // valid (or unknown rule → don't block)
-	if (def.msg) return def.msg[lang] || def.msg[DEFAULT_LANG] || ''; // inline per-lang msgs
-	return def.message || messageFallback || ''; // language-specific msg, or SHARED's catalog string
-};
-
-/** Validate `value` against a SHARED key, a language-specific key, a validator
- *  object, or a raw function. Returns the localized error message, or '' when valid. */
+/** Validate `value` against a SHARED key, a validator object, or a raw function.
+ *  Returns the localized error message, or '' when valid. */
 export const validate = (value, key, lang = DEFAULT_LANG, config = CONFIG) => {
-	// (a) raw function: the app supplies its own logic and returns the message.
+	// A raw function IS the validator: the app supplies its own logic + message.
 	if (typeof key === 'function') return key(value, lang) || '';
-	// (b) inline validator object (e.g. makeValidator) — carries its own rule + msg.
-	if (typeof key === 'object' && key) return run(value, key, lang);
-	// (c) named validator. A language-specific rule (object in the catalog) wins;
-	//     otherwise a SHARED rule with its string message from the language catalog.
-	const messages = catalog(config, lang);
-	const local = messages ? messages[key] : undefined;
-	if (local && typeof local === 'object') return run(value, local, lang); // language-specific
-	const def = config.SHARED[key];
+	const def = typeof key === 'object' && key ? key : config.SHARED[key];
 	if (!def) return '';
-	return run(value, def, lang, typeof local === 'string' ? local : '');
+	const rule = RULES[def.rule];
+	if (!rule || rule(value, def, lang)) return ''; // valid (or unknown rule → don't block)
+	return messageFor(def, lang);
 };
 
 /** First failing rule among a list (keys or validator objects/functions). '' if all pass. */
