@@ -36,14 +36,17 @@
 export const CONFIG = {
 	// ── SHARED ── common regexes, defined once, used by every language.
 	SHARED: {
-		email: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+		// name: at least 2 letters (so "Jo" is valid); letters + spaces/'/-/. between.
+		name: '^\\p{L}[\\p{L}\\s\'.-]*\\p{L}$',
+		// email: local ≥2, domain label ≥2, a dot, then a TLD of ≥2 letters.
+		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,}$',
 	},
 
 	// ── NO ── Norsk
 	NO: {
 		HINT: {
 			required: 'Dette feltet er påkrevd.',
-			name: 'Skriv inn navnet ditt.',
+			name: 'Navnet må ha minst 2 bokstaver.',
 			email: 'Skriv inn en gyldig e-postadresse.',
 			message: 'Skriv en melding.',
 			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. +47 900 00 000).',
@@ -57,7 +60,7 @@ export const CONFIG = {
 	EN: {
 		HINT: {
 			required: 'This field is required.',
-			name: 'Please enter your name.',
+			name: 'Your name must be at least 2 letters.',
 			email: 'Please enter a valid email address.',
 			message: 'Please write a message.',
 			phone: 'A valid phone number (e.g. +47 900 00 000).',
@@ -71,7 +74,7 @@ export const CONFIG = {
 	SQ: {
 		HINT: {
 			required: 'Kjo fushë është e detyrueshme.',
-			name: 'Ju lutem shkruani emrin tuaj.',
+			name: 'Emri duhet të ketë të paktën 2 shkronja.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Ju lutem shkruani një mesazh.',
 			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',
@@ -110,7 +113,7 @@ export const validate = (value, key, lang = DEFAULT_LANG, config = CONFIG) => {
 	const regex = (block.REGEX && block.REGEX[key]) || (config.SHARED && config.SHARED[key]);
 	const text = (block.HINT && block.HINT[key]) || '';
 	const v = trim(value);
-	if (regex) return new RegExp(regex).test(v) ? '' : text; // pattern rule
+	if (regex) return new RegExp(regex, 'u').test(v) ? '' : text; // pattern rule ('u' → \p{L} etc.)
 	return v.length > 0 ? '' : text; // no regex → required rule
 };
 
