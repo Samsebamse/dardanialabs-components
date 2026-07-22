@@ -83,7 +83,7 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
-      'align', 'color', 'font-size', 'social-gap', 'gap',
+      'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
       ...PLATFORM_KEYS,
     ];
@@ -232,6 +232,9 @@ class DardaniaLabsFooter extends HTMLElement {
   get color() { return this.getAttribute('color') || ''; }
   get fontSize() { return this.getAttribute('font-size') || ''; }
   get socialGap() { return this.getAttribute('social-gap') || '2rem'; }
+  // Viber and Instagram are outline marks with fine detail; below ~24px they
+  // muddy into a squiggle while solid marks like Facebook still read fine.
+  get iconSize() { return this.getAttribute('icon-size') || '26px'; }
   get gap() { return this.getAttribute('gap') || '0.5rem'; }
   get src() { return this.getAttribute('src') || ''; }
   get clientId() { return this.getAttribute('client-id') || ''; }
@@ -406,8 +409,8 @@ class DardaniaLabsFooter extends HTMLElement {
 
         .socials svg {
           display: block;      /* no inline baseline gap, so every icon sits identically */
-          width: 20px;
-          height: 20px;
+          width: ${this.iconSize};
+          height: ${this.iconSize};
           fill: currentColor;
         }
 
