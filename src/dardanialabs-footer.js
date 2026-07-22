@@ -25,6 +25,39 @@
  * and each value may be a plain string, a JSON string, or an i18n object.
  *
  * Adding a platform = one PLATFORMS entry + one ICONS entry.
+ *
+ * The built-in icons are just defaults — anyone embedding this can override
+ * them, or add platforms of their own, without forking the file.
+ *
+ * Declaratively, straight from the markup:
+ *
+ *   <!-- swap icons: a map, or a list of objects -->
+ *   <x-footer icons='{"viber":"<svg …>"}'></x-footer>
+ *   <x-footer icons='[{"key":"telegram","label":"Telegram",
+ *                      "kind":"url","icon":"<svg …>"}]'
+ *             telegram="https://t.me/acme"></x-footer>
+ *
+ *   <!-- choose which platforms show, and in what order -->
+ *   <x-footer platforms="facebook,instagram,viber"></x-footer>
+ *   <x-footer platforms='["viber","facebook"]'></x-footer>
+ *
+ * Or from JavaScript:
+ *
+ *   const Footer = customElements.get('dardanialabs-footer');
+ *
+ *   // swap one icon everywhere
+ *   Footer.setIcon('viber', '<svg viewBox="0 0 24 24">…</svg>');
+ *
+ *   // add a platform this component has never heard of
+ *   Footer.registerPlatform({ key: 'telegram', label: 'Telegram',
+ *                             kind: 'url', icon: '<svg …>' });
+ *
+ *   // or override on a single element only
+ *   document.querySelector('dardanialabs-footer').icons = { viber: '<svg …>' };
+ *
+ * Icons inherit the surrounding text colour via `fill: currentColor`, so an
+ * override should avoid hardcoded fills if it wants to keep theming.
+ * Live elements re-render automatically when an override is applied.
  */
 
 // kind: 'url'          -> value is a link
@@ -41,14 +74,17 @@ const PLATFORMS = [
   { key: 'viber', label: 'Viber', kind: 'phone_or_url' },
 ];
 
-const PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
+let PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
+
+// every connected element, so an icon override can refresh what is on screen
+const INSTANCES = new Set();
 
 class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
       'align', 'color', 'font-size', 'social-gap', 'gap',
-      'src', 'client-id', 'api',
+      'src', 'client-id', 'api', 'icons', 'platforms',
       ...PLATFORM_KEYS,
     ];
   }
@@ -61,12 +97,130 @@ class DardaniaLabsFooter extends HTMLElement {
   }
 
   connectedCallback() {
+    INSTANCES.add(this);
     this.render();
     this.loadRemote();
   }
 
+  disconnectedCallback() {
+    INSTANCES.delete(this);
+  }
+
   attributeChangedCallback() {
     this.render();
+  }
+
+  /* ---------- icon overrides ---------- */
+
+  // per-element override: el.icons = { viber: '<svg …>' }
+  set icons(map) {
+    this._icons = map && typeof map === 'object' ? map : null;
+    this.render();
+  }
+
+  get icons() {
+    return this._icons || {};
+  }
+
+  // `icons` attribute — a map, or a list of objects:
+  //   icons='{"viber":"<svg …>"}'
+  //   icons='[{"key":"telegram","label":"Telegram","kind":"url","icon":"<svg …>"}]'
+  parsedIconAttribute() {
+    const raw = this.getAttribute('icons');
+    if (!raw) return { icons: {}, definitions: [] };
+    if (this._iconAttrCache && this._iconAttrCache.raw === raw) return this._iconAttrCache.value;
+
+    const icons = {};
+    const definitions = [];
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : null;
+      if (list) {
+        for (const entry of list) {
+          if (!entry || !entry.key) continue;
+          if (entry.icon) icons[entry.key] = entry.icon;
+          definitions.push({
+            key: entry.key,
+            label: entry.label || entry.key,
+            kind: entry.kind === 'phone_or_url' ? 'phone_or_url' : 'url',
+          });
+        }
+      } else if (parsed && typeof parsed === 'object') {
+        for (const key of Object.keys(parsed)) {
+          if (typeof parsed[key] === 'string') icons[key] = parsed[key];
+        }
+      }
+    } catch (error) {
+      // malformed JSON falls back to the built-in icons
+    }
+    const value = { icons, definitions };
+    this._iconAttrCache = { raw, value };
+    return value;
+  }
+
+  // `platforms` attribute — a plain list of keys choosing which render, and in
+  // what order:  platforms="facebook,instagram,viber"  or  '["facebook","viber"]'
+  platformFilter() {
+    const raw = (this.getAttribute('platforms') || '').trim();
+    if (!raw) return [];
+    if (raw.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.map((v) => String(v).trim()).filter(Boolean);
+      } catch (error) { /* fall through to the split below */ }
+    }
+    return raw.split(/[,\s]+/).map((v) => v.trim()).filter(Boolean);
+  }
+
+  // built-ins, plus anything the icons attribute defined, narrowed/ordered by
+  // the platforms attribute when present
+  effectivePlatforms() {
+    const list = PLATFORMS.slice();
+    for (const definition of this.parsedIconAttribute().definitions) {
+      const index = list.findIndex((p) => p.key === definition.key);
+      if (index === -1) list.push(definition);
+      else list[index] = { ...list[index], ...definition };
+    }
+    const filter = this.platformFilter();
+    if (!filter.length) return list;
+    return filter.map(
+      (key) => list.find((p) => p.key === key) || { key, label: key, kind: 'url' }
+    );
+  }
+
+  // precedence: per-element property > icons attribute > built-in
+  iconFor(key) {
+    return (this._icons && this._icons[key])
+      || this.parsedIconAttribute().icons[key]
+      || ICONS[key]
+      || '';
+  }
+
+  // Replace a built-in icon everywhere.
+  static setIcon(key, svg) {
+    ICONS[key] = svg;
+    INSTANCES.forEach((el) => el.render());
+  }
+
+  // Add (or replace) a platform, optionally with its icon. Call this before
+  // the elements are created if you also want its attribute observed.
+  static registerPlatform(definition) {
+    if (!definition || !definition.key) return;
+    const entry = {
+      key: definition.key,
+      label: definition.label || definition.key,
+      kind: definition.kind === 'phone_or_url' ? 'phone_or_url' : 'url',
+    };
+    const index = PLATFORMS.findIndex((p) => p.key === entry.key);
+    if (index === -1) PLATFORMS.push(entry);
+    else PLATFORMS[index] = entry;
+    PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
+    if (definition.icon) ICONS[entry.key] = definition.icon;
+    INSTANCES.forEach((el) => el.render());
+  }
+
+  static get platforms() {
+    return PLATFORMS;
   }
 
   /* ---------- plain attributes ---------- */
@@ -196,7 +350,7 @@ class DardaniaLabsFooter extends HTMLElement {
       ? currentYear
       : `${this.founded} - ${currentYear}`;
 
-    const socials = PLATFORMS.reduce((out, platform) => {
+    const socials = this.effectivePlatforms().reduce((out, platform) => {
       const value = this.valueFor(platform.key);
       if (!value) return out;
       const href = this.hrefFor(platform, value);
@@ -205,7 +359,7 @@ class DardaniaLabsFooter extends HTMLElement {
       const isWeb = /^https?:/i.test(href);
       const target = isWeb ? ' target="_blank" rel="noopener"' : '';
       out.push(
-        `<a href="${href}"${target} aria-label="${platform.label}">${ICONS[platform.key]}</a>`
+        `<a href="${href}"${target} aria-label="${platform.label}">${this.iconFor(platform.key)}</a>`
       );
       return out;
     }, []);
