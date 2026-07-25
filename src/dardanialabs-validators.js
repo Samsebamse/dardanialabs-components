@@ -115,7 +115,12 @@ export const validate = (value, key, lang = DEFAULT_LANG, config = CONFIG) => {
 	if (!block) return '';
 	const regex = (block.REGEX && block.REGEX[key]) || (config.SHARED && config.SHARED[key]);
 	const text = (block.HINT && block.HINT[key]) || '';
-	const v = trim(value);
+	// Phone numbers are typed the way the hints themselves show them —
+	// "+47 900 00 000" — so grouping characters are formatting, not input
+	// errors. Without this, every hint's own example failed its regex.
+	const v = key === 'phone'
+		? trim(value).replace(/[\s().-]/g, '')
+		: trim(value);
 	if (regex) return new RegExp(regex, 'u').test(v) ? '' : text; // pattern rule ('u' → \p{L} etc.)
 	return v.length > 0 ? '' : text; // no regex → required rule
 };
