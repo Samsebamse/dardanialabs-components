@@ -23,6 +23,8 @@ const COMPONENTS = [
   { file: 'dardanialabs-footer.js', primary: 'dardanialabs-footer', legacy: 'rtek-footer', cssVars: false },
   { file: 'dardanialabs-photoslider.js', primary: 'dardanialabs-photoslider', legacy: 'rtek-photoslider', cssVars: true },
   { file: 'dardanialabs-mailform.js', primary: 'dardanialabs-mailform', legacy: 'rtek-mailform', cssVars: true },
+  // Born after the rename — no legacy tag, and its vars need no --rtek fallback.
+  { file: 'dardanialabs-spinner.js', primary: 'dardanialabs-spinner', legacy: null, cssVars: false },
 ];
 
 // Shadow-root <style> text uses modern CSS (color-mix, nesting-ish constructs)
@@ -63,10 +65,10 @@ for (const c of COMPONENTS) {
 
   // (a) both tags defined
   check(`${c.primary}: primary tag is defined`, () => Boolean(window.customElements.get(c.primary)));
-  check(`${c.primary}: legacy tag "${c.legacy}" is defined`, () => Boolean(window.customElements.get(c.legacy)));
+  if (c.legacy) check(`${c.primary}: legacy tag "${c.legacy}" is defined`, () => Boolean(window.customElements.get(c.legacy)));
 
   // (b) legacy element instanceof primary class
-  check(`${c.primary}: legacy element instanceof primary class`, () => {
+  if (c.legacy) check(`${c.primary}: legacy element instanceof primary class`, () => {
     const Primary = window.customElements.get(c.primary);
     const el = window.document.createElement(c.legacy);
     return el instanceof Primary;
@@ -105,6 +107,16 @@ for (const c of COMPONENTS) {
     const fresh = window.document.createElement('dardanialabs-mailform');
     return fresh.api === 'https://api.dardanialabs.io/v1/public';
   });
+}
+
+// spinner: renders a ring and an accessible label
+{
+  const el = window.document.createElement('dardanialabs-spinner');
+  el.setAttribute('label', 'Creating mailbox…');
+  window.document.body.appendChild(el);
+  check('dardanialabs-spinner: renders svg ring', () => Boolean(el.shadowRoot.querySelector('svg circle.arc')));
+  check('dardanialabs-spinner: label lands as text, not markup', () =>
+    el.shadowRoot.querySelector('.label')?.textContent === 'Creating mailbox…');
 }
 
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
