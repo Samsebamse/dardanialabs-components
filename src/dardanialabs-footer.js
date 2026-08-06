@@ -1,6 +1,19 @@
 /**
  * Footer Web Component
- * Copyright line + social links.
+ * Copyright line + registered-company line + social links.
+ *
+ * The legal line renders under the copyright: the business's registered
+ * name and organization number ("Acme SHPK · Nr. 812345678"), which most
+ * jurisdictions expect a company website to display. Values come from the
+ * same two places as everything else:
+ *
+ *   <x-footer legal-name="Acme SHPK" legal-number="Nr. 812345678"></x-footer>
+ *
+ * or remotely, as site_content rows with type "legal_name" and
+ * "legal_number" (alias "org_number") — remote wins, attributes are the
+ * fallback. The number renders exactly as given, so include the local
+ * prefix in the value ("Org.nr. 923 456 789" in Norway, "Nr. 812…" in
+ * Kosovo).
  *
  * Social values resolve from two places, in this order:
  *   1. a remote source  (see below)                      <- wins
@@ -76,6 +89,15 @@ const PLATFORMS = [
 
 let PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 
+// Remote row types carrying the registered-company identity, mapped to the
+// attribute each one overrides. Two accepted spellings for the number, one
+// stored key — whichever row a tenant adds, it lands on 'legal-number'.
+const LEGAL_ROWS = {
+  legal_name: 'legal-name',
+  legal_number: 'legal-number',
+  org_number: 'legal-number',
+};
+
 // every connected element, so an icon override can refresh what is on screen
 const INSTANCES = new Set();
 
@@ -83,6 +105,7 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
+      'legal-name', 'legal-number',
       'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
       ...PLATFORM_KEYS,
@@ -305,20 +328,24 @@ class DardaniaLabsFooter extends HTMLElement {
       for (const row of rows) {
         if (!row) continue;
         const key = String(row.type || row.name || row.platform || '').toLowerCase();
-        if (!PLATFORM_KEYS.includes(key)) continue;
+        if (!PLATFORM_KEYS.includes(key) && !LEGAL_ROWS[key]) continue;
         const raw = row.info_value !== undefined ? row.info_value
           : row.value !== undefined ? row.value : row.url;
         const text = DardaniaLabsFooter.readValue(raw);
-        if (text) out[key] = text;
+        if (text) out[LEGAL_ROWS[key] || key] = text;
       }
       return out;
     }
 
-    // flat shape: { facebook: "...", whatsapp: "+47 …" }
+    // flat shape: { facebook: "...", whatsapp: "+47 …", legal_name: "…" }
     if (payload && typeof payload === 'object') {
       for (const key of PLATFORM_KEYS) {
         const text = DardaniaLabsFooter.readValue(payload[key]);
         if (text) out[key] = text;
+      }
+      for (const key of Object.keys(LEGAL_ROWS)) {
+        const text = DardaniaLabsFooter.readValue(payload[key]);
+        if (text) out[LEGAL_ROWS[key]] = text;
       }
     }
     return out;
@@ -352,6 +379,10 @@ class DardaniaLabsFooter extends HTMLElement {
     const yearRange = !this.founded || this.founded === String(currentYear)
       ? currentYear
       : `${this.founded} - ${currentYear}`;
+
+    // "Registered Name · Nr. 123456789" — either half may stand alone.
+    const legalLine = [this.valueFor('legal-name'), this.valueFor('legal-number')]
+      .filter(Boolean).join(' · ');
 
     const socials = this.effectivePlatforms().reduce((out, platform) => {
       const value = this.valueFor(platform.key);
@@ -418,6 +449,12 @@ class DardaniaLabsFooter extends HTMLElement {
           margin: 0;
         }
 
+        .legal {
+          margin: 0.35em 0 0;
+          font-size: 0.88em;
+          opacity: 0.75;
+        }
+
         .copyright a {
           color: inherit;
           text-decoration: none;
@@ -434,6 +471,7 @@ class DardaniaLabsFooter extends HTMLElement {
         <p class="copyright">
           &copy; ${yearRange}${this.company ? ` ${this.company}` : ''}${this.developer ? ` | ${this.developerUrl ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>` : this.developer}` : ''}
         </p>
+        ${legalLine ? `<p class="legal">${legalLine}</p>` : ''}
       </div>
     `;
   }
