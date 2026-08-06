@@ -13,12 +13,34 @@
  * "legal_number" (alias "org_number") — remote wins, attributes are the
  * fallback. The number renders exactly as given, so include the local
  * prefix in the value ("Org.nr. 923 456 789" in Norway, "Nr. 812…" in
- * Kosovo) — or store BARE DIGITS and set lang="sq"|"no"|"en" on the element:
- * the component prefixes the issuing registry's own label (NUI / Org.nr. /
- * Reg. no.). lang is the REGISTRY's country, not the page language. The
- * copyright's start year resolves the same way: a "founded" (alias
- * "established") row overrides the founded attribute, and the range always
- * ends at the CURRENT year, read at render time.
+ * Kosovo) — or store BARE DIGITS and set registry="sq"|"no"|"en", and the
+ * component prefixes the issuing registry's own label (NUI / Org.nr. /
+ * Reg. no.). The copyright's start year resolves the same way: a "founded"
+ * (alias "established") row overrides the founded attribute, and the range
+ * always ends at the CURRENT year, read at render time.
+ *
+ * Everything renders as ONE line:
+ *
+ *   © 2018 - 2026 Pelinis SH.P.K. – NUI 810095506 | Privatësia | Kushtet | DardaniaLabs
+ *
+ * The number hangs off its own company on a DASH (glued with non-breaking
+ * spaces) so no wrap can strand it beside another name; everything else is
+ * pipe-separated. Each part disappears when unset, so a tenant with no
+ * number and no legal pages renders "© years Company | Developer".
+ *
+ * Two languages, deliberately separate:
+ *   registry="sq"  the country that ISSUED the number — fixed per company,
+ *                  never translated (a Kosovo company keeps NUI on a
+ *                  Norwegian page). Falls back to lang.
+ *   lang="no"      the language the PAGE is read in — labels the legal
+ *                  links. Set it from the site's language store and the
+ *                  footer re-renders on every toggle; falls back to
+ *                  <html lang>.
+ *
+ * Legal links appear only when given:
+ *   <x-footer privacy-url="/personvern" terms-url="/vilkar" lang="no">
+ * Their labels are built in (Personvern/Vilkår, Privatësia/Kushtet,
+ * Privacy/Terms), so a tenant supplies URLs and nothing else.
  *
  * Social values resolve from two places, in this order:
  *   1. a remote source  (see below)                      <- wins
@@ -117,6 +139,16 @@ const IDENTITY_ROWS = {
 // values keep working without any lang set.
 const NUMBER_LABELS = { sq: 'NUI', no: 'Org.nr.', en: 'Reg. no.' };
 
+// Legal-page link labels, in the language the PAGE is being read in — unlike
+// the registry label above, which belongs to the registry and never
+// translates. Set `lang` from the site's language store and the footer
+// re-renders on every toggle (attributeChangedCallback -> render).
+const LINK_LABELS = {
+  no: { privacy: 'Personvern', terms: 'Vilkår' },
+  sq: { privacy: 'Privatësia', terms: 'Kushtet' },
+  en: { privacy: 'Privacy', terms: 'Terms' },
+};
+
 // every connected element, so an icon override can refresh what is on screen
 const INSTANCES = new Set();
 
@@ -124,7 +156,8 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
-      'legal-name', 'legal-number', 'lang',
+      'legal-name', 'legal-number', 'lang', 'registry',
+      'privacy-url', 'terms-url',
       'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
       ...PLATFORM_KEYS,
@@ -268,7 +301,24 @@ class DardaniaLabsFooter extends HTMLElement {
   /* ---------- plain attributes ---------- */
 
   get company() { return this.getAttribute('company') || ''; }
-  get lang() { return (this.getAttribute('lang') || '').toLowerCase(); }
+  // The language the page is READ in. Falls back to the document's own lang,
+  // so a site that never sets it still gets sensible link labels.
+  get lang() {
+    return (this.getAttribute('lang')
+      || document.documentElement.getAttribute('lang')
+      || '').toLowerCase().split('-')[0];
+  }
+
+  // The country of the registry that ISSUED the business number — a fixed
+  // property of the company, not of the reader. A Kosovo company keeps its
+  // NUI label on a Norwegian-language page. Falls back to lang for the
+  // common case where a company is registered where it trades.
+  get registry() {
+    return (this.getAttribute('registry') || '').toLowerCase() || this.lang;
+  }
+
+  get privacyUrl() { return this.getAttribute('privacy-url') || ''; }
+  get termsUrl() { return this.getAttribute('terms-url') || ''; }
   get founded() { return this.getAttribute('founded') || ''; }
   get developer() { return this.getAttribute('developer') || ''; }
   get developerUrl() { return this.getAttribute('developer-url') || ''; }
@@ -414,20 +464,41 @@ class DardaniaLabsFooter extends HTMLElement {
     // as belonging to the wrong company.
     const legalName = this.valueFor('legal-name');
     const rawNumber = this.valueFor('legal-number');
-    // The end part is "{registry label} {number}" — BOTH or NOTHING. Bare
-    // digits get the registry's own label; bare digits without a resolvable
-    // label are dropped entirely; a value that already carries letters
-    // (hand-prefixed) renders exactly as given.
-    const numberLabel = NUMBER_LABELS[this.lang] || '';
+    // The number is "{registry label} {number}" — BOTH or NOTHING. Bare
+    // digits get the issuing registry's own label; bare digits without a
+    // resolvable label are dropped entirely; a value that already carries
+    // letters (hand-prefixed) renders exactly as given.
+    const numberLabel = NUMBER_LABELS[this.registry] || '';
     const isBare = rawNumber && !/[a-z]/i.test(rawNumber);
-    const legalNumber = !rawNumber ? ''
+    const legalNumber = (!rawNumber ? ''
       : isBare
         ? (numberLabel ? `${numberLabel} ${rawNumber}` : '')
-        : rawNumber;
-    const inlineNumber = !legalName && legalNumber ? ` | ${legalNumber}` : '';
-    const legalLine = legalName
-      ? [legalName, legalNumber].filter(Boolean).join(' · ')
-      : '';
+        : rawNumber
+    ).replace(/ /g, ' '); // "Org.nr. 932 533 413" never splits mid-number
+
+    // One line, pipe-separated. The number is the exception: it hangs off
+    // its own company on a DASH, so the two read as one unit and no wrap can
+    // strand the number beside another name (which is exactly what happened
+    // when it sat behind a pipe of its own).
+    // The dash is glued to the number, so if the line wraps there the number
+    // moves down as "– Org.nr. …", still visibly hanging off the name above
+    // it, instead of stranding a lone number beside the next company.
+    const named = (name) => name + (legalNumber ? ` – ${legalNumber}` : '');
+    const labels = LINK_LABELS[this.lang] || LINK_LABELS.en;
+    const link = (href, text) =>
+      `<a href="${href}">${text}</a>`;
+
+    const segments = [
+      `&copy; ${yearRange}${this.company ? ` ${legalName ? this.company : named(this.company)}` : ''}`,
+      legalName ? named(legalName) : '',
+      this.privacyUrl ? link(this.privacyUrl, labels.privacy) : '',
+      this.termsUrl ? link(this.termsUrl, labels.terms) : '',
+      this.developer
+        ? (this.developerUrl
+          ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>`
+          : this.developer)
+        : '',
+    ].filter(Boolean);
 
     const socials = this.effectivePlatforms().reduce((out, platform) => {
       const value = this.valueFor(platform.key);
@@ -492,12 +563,16 @@ class DardaniaLabsFooter extends HTMLElement {
 
         .copyright {
           margin: 0;
+          text-align: ${this.align === 'flex-start' ? 'left' : this.align === 'flex-end' ? 'right' : 'center'};
+          /* One line on desktop, wrapping as words on narrow screens — never
+             mid-number (non-breaking spaces in the markup handle that). */
+          line-height: 1.6;
         }
 
-        .legal {
-          margin: 0.35em 0 0;
-          font-size: 0.88em;
-          opacity: 0.75;
+        /* Dimmed so the pipes separate without competing with the words. */
+        .sep {
+          opacity: 0.45;
+          padding: 0 0.15em;
         }
 
         .copyright a {
@@ -513,10 +588,7 @@ class DardaniaLabsFooter extends HTMLElement {
 
       <div class="container">
         ${socials.length > 0 ? `<div class="socials">${socials.join('')}</div>` : ''}
-        <p class="copyright">
-          &copy; ${yearRange}${this.company ? ` ${this.company}` : ''}${inlineNumber}${this.developer ? ` | ${this.developerUrl ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>` : this.developer}` : ''}
-        </p>
-        ${legalLine ? `<p class="legal">${legalLine}</p>` : ''}
+        <p class="copyright">${segments.join(' <span class="sep">|</span> ')}</p>
       </div>
     `;
   }
