@@ -13,7 +13,9 @@
  * "legal_number" (alias "org_number") — remote wins, attributes are the
  * fallback. The number renders exactly as given, so include the local
  * prefix in the value ("Org.nr. 923 456 789" in Norway, "Nr. 812…" in
- * Kosovo).
+ * Kosovo). The copyright's start year resolves the same way: a "founded"
+ * (alias "established") row overrides the founded attribute, and the range
+ * always ends at the CURRENT year, read at render time.
  *
  * Social values resolve from two places, in this order:
  *   1. a remote source  (see below)                      <- wins
@@ -89,13 +91,17 @@ const PLATFORMS = [
 
 let PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 
-// Remote row types carrying the registered-company identity, mapped to the
-// attribute each one overrides. Two accepted spellings for the number, one
-// stored key — whichever row a tenant adds, it lands on 'legal-number'.
-const LEGAL_ROWS = {
+// Remote row types carrying the business identity, mapped to the attribute
+// each one overrides. Aliases land on one stored key — whichever spelling a
+// tenant adds, it works. 'founded'/'established' feed the copyright's
+// "start year - current year" range, so the whole line can be corrected
+// from the CMS without a redeploy.
+const IDENTITY_ROWS = {
   legal_name: 'legal-name',
   legal_number: 'legal-number',
   org_number: 'legal-number',
+  founded: 'founded',
+  established: 'founded',
 };
 
 // every connected element, so an icon override can refresh what is on screen
@@ -328,11 +334,11 @@ class DardaniaLabsFooter extends HTMLElement {
       for (const row of rows) {
         if (!row) continue;
         const key = String(row.type || row.name || row.platform || '').toLowerCase();
-        if (!PLATFORM_KEYS.includes(key) && !LEGAL_ROWS[key]) continue;
+        if (!PLATFORM_KEYS.includes(key) && !IDENTITY_ROWS[key]) continue;
         const raw = row.info_value !== undefined ? row.info_value
           : row.value !== undefined ? row.value : row.url;
         const text = DardaniaLabsFooter.readValue(raw);
-        if (text) out[LEGAL_ROWS[key] || key] = text;
+        if (text) out[IDENTITY_ROWS[key] || key] = text;
       }
       return out;
     }
@@ -343,9 +349,9 @@ class DardaniaLabsFooter extends HTMLElement {
         const text = DardaniaLabsFooter.readValue(payload[key]);
         if (text) out[key] = text;
       }
-      for (const key of Object.keys(LEGAL_ROWS)) {
+      for (const key of Object.keys(IDENTITY_ROWS)) {
         const text = DardaniaLabsFooter.readValue(payload[key]);
-        if (text) out[LEGAL_ROWS[key]] = text;
+        if (text) out[IDENTITY_ROWS[key]] = text;
       }
     }
     return out;
@@ -375,10 +381,15 @@ class DardaniaLabsFooter extends HTMLElement {
   /* ---------- render ---------- */
 
   render() {
+    // The current year is read at render time, never written into anything —
+    // so "start - current" stays true at every New Year on its own. The start
+    // year resolves remotely first ('founded'/'established' row), then from
+    // the attribute, like every other value here.
     const currentYear = new Date().getFullYear();
-    const yearRange = !this.founded || this.founded === String(currentYear)
+    const founded = this.valueFor('founded');
+    const yearRange = !founded || founded === String(currentYear)
       ? currentYear
-      : `${this.founded} - ${currentYear}`;
+      : `${founded} - ${currentYear}`;
 
     // "Registered Name · Nr. 123456789" — either half may stand alone.
     const legalLine = [this.valueFor('legal-name'), this.valueFor('legal-number')]
