@@ -13,9 +13,12 @@
  * "legal_number" (alias "org_number") — remote wins, attributes are the
  * fallback. The number renders exactly as given, so include the local
  * prefix in the value ("Org.nr. 923 456 789" in Norway, "Nr. 812…" in
- * Kosovo). The copyright's start year resolves the same way: a "founded"
- * (alias "established") row overrides the founded attribute, and the range
- * always ends at the CURRENT year, read at render time.
+ * Kosovo) — or store BARE DIGITS and set lang="sq"|"no"|"en" on the element:
+ * the component prefixes the issuing registry's own label (NUI / Org.nr. /
+ * Reg. no.). lang is the REGISTRY's country, not the page language. The
+ * copyright's start year resolves the same way: a "founded" (alias
+ * "established") row overrides the founded attribute, and the range always
+ * ends at the CURRENT year, read at render time.
  *
  * Social values resolve from two places, in this order:
  *   1. a remote source  (see below)                      <- wins
@@ -104,6 +107,14 @@ const IDENTITY_ROWS = {
   established: 'founded',
 };
 
+// Registry-specific prefix for a BARE number (digits/spaces only): Kosovo's
+// ARBK calls it a NUI, Norway's Brønnøysund an organisasjonsnummer. Keyed by
+// the element's lang attribute — the country of the ISSUING REGISTRY, not
+// the page language (a Norwegian-language site can front a Kosovo company).
+// A value that already carries letters renders untouched, so hand-prefixed
+// values keep working.
+const NUMBER_LABELS = { sq: 'NUI', no: 'Org.nr.', en: 'Reg. no.' };
+
 // every connected element, so an icon override can refresh what is on screen
 const INSTANCES = new Set();
 
@@ -111,7 +122,7 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
-      'legal-name', 'legal-number',
+      'legal-name', 'legal-number', 'lang',
       'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
       ...PLATFORM_KEYS,
@@ -255,6 +266,7 @@ class DardaniaLabsFooter extends HTMLElement {
   /* ---------- plain attributes ---------- */
 
   get company() { return this.getAttribute('company') || ''; }
+  get lang() { return (this.getAttribute('lang') || '').toLowerCase(); }
   get founded() { return this.getAttribute('founded') || ''; }
   get developer() { return this.getAttribute('developer') || ''; }
   get developerUrl() { return this.getAttribute('developer-url') || ''; }
@@ -399,7 +411,13 @@ class DardaniaLabsFooter extends HTMLElement {
     // the brand (or after the developer credit, the original bug) would read
     // as belonging to the wrong company.
     const legalName = this.valueFor('legal-name');
-    const legalNumber = this.valueFor('legal-number');
+    const rawNumber = this.valueFor('legal-number');
+    // Bare digits get the registry's own label; anything already worded
+    // (letters present) is shown exactly as given.
+    const numberLabel = NUMBER_LABELS[this.lang] || '';
+    const legalNumber = rawNumber && numberLabel && !/[a-z]/i.test(rawNumber)
+      ? `${numberLabel} ${rawNumber}`
+      : rawNumber;
     const inlineNumber = !legalName && legalNumber ? ` | ${legalNumber}` : '';
     const legalLine = legalName
       ? [legalName, legalNumber].filter(Boolean).join(' · ')
