@@ -391,9 +391,19 @@ class DardaniaLabsFooter extends HTMLElement {
       ? currentYear
       : `${founded} - ${currentYear}`;
 
-    // "Registered Name · Nr. 123456789" — either half may stand alone.
-    const legalLine = [this.valueFor('legal-name'), this.valueFor('legal-number')]
-      .filter(Boolean).join(' · ');
+    // The number renders NEXT TO the name it identifies, never adrift. When
+    // the © company IS the registered name (no separate legal-name), the
+    // number joins the copyright line: "© years Name | Nr. … | Developer".
+    // When a brand fronts the © and the registered company differs, name and
+    // number stay together on their own line below — a number inlined after
+    // the brand (or after the developer credit, the original bug) would read
+    // as belonging to the wrong company.
+    const legalName = this.valueFor('legal-name');
+    const legalNumber = this.valueFor('legal-number');
+    const inlineNumber = !legalName && legalNumber ? ` | ${legalNumber}` : '';
+    const legalLine = legalName
+      ? [legalName, legalNumber].filter(Boolean).join(' · ')
+      : '';
 
     const socials = this.effectivePlatforms().reduce((out, platform) => {
       const value = this.valueFor(platform.key);
@@ -480,7 +490,7 @@ class DardaniaLabsFooter extends HTMLElement {
       <div class="container">
         ${socials.length > 0 ? `<div class="socials">${socials.join('')}</div>` : ''}
         <p class="copyright">
-          &copy; ${yearRange}${this.company ? ` ${this.company}` : ''}${this.developer ? ` | ${this.developerUrl ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>` : this.developer}` : ''}
+          &copy; ${yearRange}${this.company ? ` ${this.company}` : ''}${inlineNumber}${this.developer ? ` | ${this.developerUrl ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>` : this.developer}` : ''}
         </p>
         ${legalLine ? `<p class="legal">${legalLine}</p>` : ''}
       </div>
