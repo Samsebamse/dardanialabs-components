@@ -111,8 +111,10 @@ const IDENTITY_ROWS = {
 // ARBK calls it a NUI, Norway's Brønnøysund an organisasjonsnummer. Keyed by
 // the element's lang attribute — the country of the ISSUING REGISTRY, not
 // the page language (a Norwegian-language site can front a Kosovo company).
+// No fallback label on purpose: bare digits with no matching lang render
+// NOTHING at all — an unlabelled number in a footer is noise, not honesty.
 // A value that already carries letters renders untouched, so hand-prefixed
-// values keep working.
+// values keep working without any lang set.
 const NUMBER_LABELS = { sq: 'NUI', no: 'Org.nr.', en: 'Reg. no.' };
 
 // every connected element, so an icon override can refresh what is on screen
@@ -412,12 +414,16 @@ class DardaniaLabsFooter extends HTMLElement {
     // as belonging to the wrong company.
     const legalName = this.valueFor('legal-name');
     const rawNumber = this.valueFor('legal-number');
-    // Bare digits get the registry's own label; anything already worded
-    // (letters present) is shown exactly as given.
+    // The end part is "{registry label} {number}" — BOTH or NOTHING. Bare
+    // digits get the registry's own label; bare digits without a resolvable
+    // label are dropped entirely; a value that already carries letters
+    // (hand-prefixed) renders exactly as given.
     const numberLabel = NUMBER_LABELS[this.lang] || '';
-    const legalNumber = rawNumber && numberLabel && !/[a-z]/i.test(rawNumber)
-      ? `${numberLabel} ${rawNumber}`
-      : rawNumber;
+    const isBare = rawNumber && !/[a-z]/i.test(rawNumber);
+    const legalNumber = !rawNumber ? ''
+      : isBare
+        ? (numberLabel ? `${numberLabel} ${rawNumber}` : '')
+        : rawNumber;
     const inlineNumber = !legalName && legalNumber ? ` | ${legalNumber}` : '';
     const legalLine = legalName
       ? [legalName, legalNumber].filter(Boolean).join(' · ')
