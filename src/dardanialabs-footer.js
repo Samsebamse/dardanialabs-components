@@ -19,14 +19,21 @@
  * (alias "established") row overrides the founded attribute, and the range
  * always ends at the CURRENT year, read at render time.
  *
- * Everything renders as ONE line:
+ * Three centred lines, each of which disappears when it has nothing to say:
  *
- *   © 2018 - 2026 Pelinis SH.P.K. – NUI 810095506 | Privatësia | Kushtet | DardaniaLabs
+ *              facebook   instagram   whatsapp
+ *     © 2018 - 2026 Pelinis SH.P.K. – NUI 810095506 | DardaniaLabs
+ *                  Privatësia · Kushtet
  *
- * The number hangs off its own company on a DASH (glued with non-breaking
- * spaces) so no wrap can strand it beside another name; everything else is
- * pipe-separated. Each part disappears when unset, so a tenant with no
- * number and no legal pages renders "© years Company | Developer".
+ * Line 2 is the copyright statement: the © stays welded to the name it
+ * protects, and the business number hangs off that name on a DASH (glued
+ * with non-breaking spaces) so no wrap can strand it beside another name.
+ * The single pipe means one thing — "and this was built by". Line 3 holds
+ * the only clickable text, on a lighter separator, so it reads as
+ * navigation rather than more legal prose.
+ *
+ * A tenant with no number and no legal pages simply renders
+ * "© years Company | Developer" — one line, nothing empty.
  *
  * Two languages, deliberately separate:
  *   registry="sq"  the country that ISSUED the number — fixed per company,
@@ -41,6 +48,15 @@
  *   <x-footer privacy-url="/personvern" terms-url="/vilkar" lang="no">
  * Their labels are built in (Personvern/Vilkår, Privatësia/Kushtet,
  * Privacy/Terms), so a tenant supplies URLs and nothing else.
+ *
+ * company and legal-name accept an i18n value as well as a string:
+ *
+ *   legal-name='{"sq":"Pelinis SH.P.K.","en":"Pelinis L.L.C."}'
+ *
+ * for the case where a registry issues its own official readings of the
+ * same name (Kosovo's ARBK prints Sh.p.k. and L.L.C. on one certificate).
+ * This is NEVER us translating a company name — only the tenant choosing
+ * between forms that appear on their own registration.
  *
  * Social values resolve from two places, in this order:
  *   1. a remote source  (see below)                      <- wins
@@ -370,6 +386,35 @@ class DardaniaLabsFooter extends HTMLElement {
 
   /* ---------- CMS ---------- */
 
+  // Identity values (the registered name above all) keep EVERY language they
+  // arrived with, so the render can pick the reading that matches the page.
+  // A registered name is never translated by us — but some registries issue
+  // more than one official form of it (Kosovo's ARBK prints Sh.p.k. and
+  // L.L.C. on the same certificate), and a tenant may store both.
+  static readIdentityValue(raw) {
+    let value = raw;
+    if (typeof value === 'string') {
+      try { value = JSON.parse(value); } catch (e) { return String(raw).trim(); }
+    }
+    if (value && typeof value === 'object') return JSON.stringify(value);
+    return String(value ?? '').trim();
+  }
+
+  // Pick the reading for the page's language out of an i18n value; a plain
+  // string passes through untouched.
+  localized(raw) {
+    let value = raw;
+    if (typeof value === 'string' && value.trim().startsWith('{')) {
+      try { value = JSON.parse(value); } catch (e) { return value.trim(); }
+    }
+    if (value && typeof value === 'object') {
+      const pick = value[this.lang] || value.en
+        || Object.values(value).find((v) => typeof v === 'string' && v.trim());
+      return typeof pick === 'string' ? pick.trim() : '';
+    }
+    return String(value || '').trim();
+  }
+
   // A value may be a plain string, a JSON string, or an i18n object
   // ({ no: "...", en: "..." }). Take the first usable string.
   static readValue(raw) {
@@ -401,7 +446,9 @@ class DardaniaLabsFooter extends HTMLElement {
         if (!PLATFORM_KEYS.includes(key) && !IDENTITY_ROWS[key]) continue;
         const raw = row.info_value !== undefined ? row.info_value
           : row.value !== undefined ? row.value : row.url;
-        const text = DardaniaLabsFooter.readValue(raw);
+        const text = IDENTITY_ROWS[key]
+          ? DardaniaLabsFooter.readIdentityValue(raw)
+          : DardaniaLabsFooter.readValue(raw);
         if (text) out[IDENTITY_ROWS[key] || key] = text;
       }
       return out;
@@ -462,7 +509,8 @@ class DardaniaLabsFooter extends HTMLElement {
     // number stay together on their own line below — a number inlined after
     // the brand (or after the developer credit, the original bug) would read
     // as belonging to the wrong company.
-    const legalName = this.valueFor('legal-name');
+    const legalName = this.localized(this.valueFor('legal-name'));
+    const companyName = this.localized(this.company);
     const rawNumber = this.valueFor('legal-number');
     // The number is "{registry label} {number}" — BOTH or NOTHING. Bare
     // digits get the issuing registry's own label; bare digits without a
@@ -488,16 +536,26 @@ class DardaniaLabsFooter extends HTMLElement {
     const link = (href, text) =>
       `<a href="${href}">${text}</a>`;
 
+    // LINE 2 — the copyright statement, then who built the site. The © stays
+    // welded to the name it protects (splitting them with a separator makes
+    // two unrelated facts out of one legal sentence), so there is exactly one
+    // pipe here and it means one thing: "and this was built by".
     const segments = [
-      `&copy; ${yearRange}${this.company ? ` ${legalName ? this.company : named(this.company)}` : ''}`,
+      `&copy; ${yearRange}${companyName ? ` ${legalName ? companyName : named(companyName)}` : ''}`,
       legalName ? named(legalName) : '',
-      this.privacyUrl ? link(this.privacyUrl, labels.privacy) : '',
-      this.termsUrl ? link(this.termsUrl, labels.terms) : '',
       this.developer
         ? (this.developerUrl
           ? `<a href="${this.developerUrl}" target="_blank" rel="noopener">${this.developer}</a>`
           : this.developer)
         : '',
+    ].filter(Boolean);
+
+    // LINE 3 — the only clickable text down here, so it gets its own line and
+    // a lighter separator: a reader spots "things I can open" at a glance
+    // instead of hunting through the legal sentence above.
+    const legalLinks = [
+      this.privacyUrl ? link(this.privacyUrl, labels.privacy) : '',
+      this.termsUrl ? link(this.termsUrl, labels.terms) : '',
     ].filter(Boolean);
 
     const socials = this.effectivePlatforms().reduce((out, platform) => {
@@ -569,11 +627,29 @@ class DardaniaLabsFooter extends HTMLElement {
           line-height: 1.6;
         }
 
-        /* Dimmed so the pipes separate without competing with the words. */
+        /* Dimmed so the separators divide without competing with the words. */
         .sep {
           opacity: 0.45;
           padding: 0 0.15em;
         }
+
+        .legal-links {
+          margin: 0.4em 0 0;
+          font-size: 0.92em;
+          text-align: inherit;
+        }
+
+        .legal-links a {
+          color: inherit;
+          text-decoration: none;
+          border-bottom: 1px solid currentColor;
+          padding-bottom: 1px;
+          opacity: 0.8;
+          transition: opacity 0.2s ease;
+        }
+
+        .legal-links a:visited { color: inherit; }
+        .legal-links a:hover { opacity: 1; }
 
         .copyright a {
           color: inherit;
@@ -589,6 +665,7 @@ class DardaniaLabsFooter extends HTMLElement {
       <div class="container">
         ${socials.length > 0 ? `<div class="socials">${socials.join('')}</div>` : ''}
         <p class="copyright">${segments.join(' <span class="sep">|</span> ')}</p>
+        ${legalLinks.length ? `<p class="legal-links">${legalLinks.join(' <span class="sep">·</span> ')}</p>` : ''}
       </div>
     `;
   }
