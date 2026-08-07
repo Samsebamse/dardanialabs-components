@@ -2,8 +2,8 @@
  * Footer Web Component
  * Copyright line + registered-company line + social links.
  *
- * The legal line renders under the copyright: the business's registered
- * name and organization number ("Acme SHPK · Nr. 812345678"), which most
+ * The copyright line carries the business's registered name and its
+ * registration number ("Acme SHPK · Nr. 812345678"), which most
  * jurisdictions expect a company website to display. Values come from the
  * same two places as everything else:
  *
@@ -21,15 +21,18 @@
  * Three centred lines, each of which disappears when it has nothing to say:
  *
  *              facebook   instagram   whatsapp
- *     © 2018 - 2026 Pelinis SH.P.K. – NUI 810095506 | DardaniaLabs
+ *     © 2018 - 2026 Pelinis SH.P.K. · NUI 810095506 | DardaniaLabs
  *                  Privatësia · Kushtet
  *
- * Line 2 is the copyright statement: the © stays welded to the name it
- * protects, and the business number hangs off that name on a DASH (glued
- * with non-breaking spaces) so no wrap can strand it beside another name.
- * The single pipe means one thing — "and this was built by". Line 3 holds
- * the only clickable text, on a lighter separator, so it reads as
- * navigation rather than more legal prose.
+ * Two separators, each with one meaning. A BULLET joins items of the same
+ * kind — a company and its registration number, one legal link and the
+ * next. A PIPE marks a change of kind, and there is exactly one: identity,
+ * then who built the site.
+ *
+ * The © stays welded to the name it protects, and the number is glued to
+ * its bullet with a non-breaking space, so no wrap can strand it beside
+ * another name. Line 3 holds the only clickable text, so it sits apart and
+ * reads as navigation rather than more legal prose.
  *
  * A tenant with no number and no legal pages simply renders
  * "© years Company | Developer" — one line, nothing empty.
@@ -141,14 +144,6 @@ const IDENTITY_ROWS = {
   established: 'founded',
 };
 
-// Registry-specific prefix for a BARE number (digits/spaces only): Kosovo's
-// ARBK calls it a NUI, Norway's Brønnøysund an organisasjonsnummer. Keyed by
-// the element's lang attribute — the country of the ISSUING REGISTRY, not
-// the page language (a Norwegian-language site can front a Kosovo company).
-// No fallback label on purpose: bare digits with no matching lang render
-// NOTHING at all — an unlabelled number in a footer is noise, not honesty.
-// A value that already carries letters renders untouched, so hand-prefixed
-// values keep working without any lang set.
 // The business number is printed EXACTLY as given, label and all:
 //   legal-number="Org.nr. 932 533 413"   legal-number="NUI 810095506"
 // There is no table mapping a country to its label, because the label is a
@@ -509,14 +504,14 @@ class DardaniaLabsFooter extends HTMLElement {
     // keep "Org.nr. 932 533 413" from splitting across a line.
     const legalNumber = rawNumber.replace(/ /g, ' ');
 
-    // One line, pipe-separated. The number is the exception: it hangs off
-    // its own company on a DASH, so the two read as one unit and no wrap can
-    // strand the number beside another name (which is exactly what happened
-    // when it sat behind a pipe of its own).
-    // The dash is glued to the number, so if the line wraps there the number
-    // moves down as "– Org.nr. …", still visibly hanging off the name above
-    // it, instead of stranding a lone number beside the next company.
-    const named = (name) => name + (legalNumber ? ` – ${legalNumber}` : '');
+    // Two separators, each meaning one thing. A BULLET joins items of the
+    // same kind - a company and its registration number, one legal link and
+    // the next. A PIPE marks a change of kind: identity, then who built it.
+    //
+    // The bullet is glued to the number with a non-breaking space, so a wrap
+    // carries it down as '· Org.nr. …', still visibly hanging off the name
+    // above rather than stranding a lone number beside the next company.
+    const named = (name) => name + (legalNumber ? ` · ${legalNumber}` : '');
     const labels = LINK_LABELS[this.lang] || LINK_LABELS.en;
     const link = (href, text) =>
       `<a href="${href}">${text}</a>`;
