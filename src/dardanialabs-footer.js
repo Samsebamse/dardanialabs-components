@@ -11,11 +11,10 @@
  *
  * or remotely, as site_content rows with type "legal_name" and
  * "legal_number" (alias "org_number") — remote wins, attributes are the
- * fallback. The number renders exactly as given, so include the local
- * prefix in the value ("Org.nr. 923 456 789" in Norway, "Nr. 812…" in
- * Kosovo) — or store BARE DIGITS and set registry="sq"|"no"|"en", and the
- * component prefixes the issuing registry's own label (NUI / Org.nr. /
- * Reg. no.). The copyright's start year resolves the same way: a "founded"
+ * fallback. The number renders EXACTLY as given, label included — write
+ * "Org.nr. 932 533 413" in Norway, "NUI 810095506" in Kosovo. The label is
+ * a constant of the company, so it is stated once where the company is
+ * stated, never derived. The copyright's start year resolves the same way: a "founded"
  * (alias "established") row overrides the founded attribute, and the range
  * always ends at the CURRENT year, read at render time.
  *
@@ -35,14 +34,11 @@
  * A tenant with no number and no legal pages simply renders
  * "© years Company | Developer" — one line, nothing empty.
  *
- * Two languages, deliberately separate:
- *   registry="sq"  the country that ISSUED the number — fixed per company,
- *                  never translated (a Kosovo company keeps NUI on a
- *                  Norwegian page). Falls back to lang.
- *   lang="no"      the language the PAGE is read in — labels the legal
- *                  links. Set it from the site's language store and the
- *                  footer re-renders on every toggle; falls back to
- *                  <html lang>.
+ * lang="no" is the language the PAGE is read in, and it labels ONE thing:
+ * the legal links. Set it from the site's language store and the footer
+ * re-renders on every toggle; it falls back to <html lang>. Nothing about
+ * the company's identity follows it — a Kosovo company keeps NUI on a
+ * Norwegian page, because that is what its certificate says.
  *
  * Legal links appear only when given:
  *   <x-footer privacy-url="/personvern" terms-url="/vilkar" lang="no">
@@ -153,11 +149,16 @@ const IDENTITY_ROWS = {
 // NOTHING at all — an unlabelled number in a footer is noise, not honesty.
 // A value that already carries letters renders untouched, so hand-prefixed
 // values keep working without any lang set.
-const NUMBER_LABELS = { sq: 'NUI', no: 'Org.nr.', en: 'Reg. no.' };
+// The business number is printed EXACTLY as given, label and all:
+//   legal-number="Org.nr. 932 533 413"   legal-number="NUI 810095506"
+// There is no table mapping a country to its label, because the label is a
+// constant of the company — it never changes and never translates — so
+// deriving it bought nothing and cost a component release every time a new
+// country appeared. The site states it; the footer prints it.
 
-// Legal-page link labels, in the language the PAGE is being read in — unlike
-// the registry label above, which belongs to the registry and never
-// translates. Set `lang` from the site's language store and the footer
+// Legal-page link labels, in the language the PAGE is being read in — the
+// only thing here that follows the reader rather than the company.
+// Set `lang` from the site's language store and the footer
 // re-renders on every toggle (attributeChangedCallback -> render).
 const LINK_LABELS = {
   no: { privacy: 'Personvern', terms: 'Vilkår' },
@@ -172,7 +173,7 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
-      'legal-name', 'legal-number', 'lang', 'registry',
+      'legal-name', 'legal-number', 'lang',
       'privacy-url', 'terms-url',
       'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
@@ -323,14 +324,6 @@ class DardaniaLabsFooter extends HTMLElement {
     return (this.getAttribute('lang')
       || document.documentElement.getAttribute('lang')
       || '').toLowerCase().split('-')[0];
-  }
-
-  // The country of the registry that ISSUED the business number — a fixed
-  // property of the company, not of the reader. A Kosovo company keeps its
-  // NUI label on a Norwegian-language page. Falls back to lang for the
-  // common case where a company is registered where it trades.
-  get registry() {
-    return (this.getAttribute('registry') || '').toLowerCase() || this.lang;
   }
 
   get privacyUrl() { return this.getAttribute('privacy-url') || ''; }
@@ -512,17 +505,9 @@ class DardaniaLabsFooter extends HTMLElement {
     const legalName = this.localized(this.valueFor('legal-name'));
     const companyName = this.localized(this.company);
     const rawNumber = this.valueFor('legal-number');
-    // The number is "{registry label} {number}" — BOTH or NOTHING. Bare
-    // digits get the issuing registry's own label; bare digits without a
-    // resolvable label are dropped entirely; a value that already carries
-    // letters (hand-prefixed) renders exactly as given.
-    const numberLabel = NUMBER_LABELS[this.registry] || '';
-    const isBare = rawNumber && !/[a-z]/i.test(rawNumber);
-    const legalNumber = (!rawNumber ? ''
-      : isBare
-        ? (numberLabel ? `${numberLabel} ${rawNumber}` : '')
-        : rawNumber
-    ).replace(/ /g, ' '); // "Org.nr. 932 533 413" never splits mid-number
+    // Printed as given; empty renders nothing at all. Non-breaking spaces
+    // keep "Org.nr. 932 533 413" from splitting across a line.
+    const legalNumber = rawNumber.replace(/ /g, ' ');
 
     // One line, pipe-separated. The number is the exception: it hangs off
     // its own company on a DASH, so the two read as one unit and no wrap can
