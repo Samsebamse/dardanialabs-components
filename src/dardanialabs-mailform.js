@@ -226,6 +226,7 @@ class DardaniaLabsMailform extends HTMLElement {
           || t.subjectDefault,
         message,
         lang: this.lang,
+        company: this.field('company')?.value || '',
       },
     };
 
@@ -364,6 +365,15 @@ class DardaniaLabsMailform extends HTMLElement {
       </style>
 
       <form novalidate>
+        <!-- Honeypot: absolutely positioned off-canvas rather than
+             display:none, because cruder bots skip hidden fields but still
+             autofill off-screen ones. No human ever sees or fills it; the
+             server answers a filled one with a fake success and sends
+             nothing. aria-hidden + tabindex keep it out of screen readers
+             and tab order. -->
+        <div style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;overflow:hidden;" aria-hidden="true">
+          <input name="company" type="text" tabindex="-1" autocomplete="off" />
+        </div>
         <div class="field">
           <label>${t.name}</label>
           <input name="name" type="text" placeholder="${t.namePh}" />
