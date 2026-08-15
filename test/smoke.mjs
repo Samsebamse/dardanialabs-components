@@ -25,6 +25,8 @@ const COMPONENTS = [
   { file: 'dardanialabs-mailform.js', primary: 'dardanialabs-mailform', legacy: 'rtek-mailform', cssVars: true },
   // Born after the rename — no legacy tag, and its vars need no --rtek fallback.
   { file: 'dardanialabs-spinner.js', primary: 'dardanialabs-spinner', legacy: null, cssVars: false },
+  { file: 'dardanialabs-datepicker.js', primary: 'dardanialabs-datepicker', legacy: null, cssVars: false },
+  { file: 'dardanialabs-timepicker.js', primary: 'dardanialabs-timepicker', legacy: null, cssVars: false },
 ];
 
 // Shadow-root <style> text uses modern CSS (color-mix, nesting-ish constructs)
