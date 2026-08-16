@@ -33,6 +33,11 @@
  *   quick-add      footer shortcut, e.g. "4y" → "+4 år" / "+4 years"
  *                  (also 4m months, 4w weeks, 4d days; adds to the current
  *                   value or today, then clamps into min/max)
+ *                  Compound form "4y-1d" subtracts days after adding — the
+ *                  contract-term convention (start + 4 years − 1 day).
+ *   quick-add-base ISO date the shortcut adds to INSTEAD of the current
+ *                  value (e.g. bind a contract's start date). When present
+ *                  but empty/invalid the shortcut renders disabled.
  *
  * Events:
  *   change   CustomEvent, bubbles + composed, detail: { value }
@@ -60,13 +65,14 @@
  *   --dardanialabs-dp-cell-radius     day / year cell radius    (9px)
  *   --dardanialabs-dp-shadow          popup shadow              (0 12px 36px rgba(40,51,40,.14))
  *   --dardanialabs-dp-font-size       trigger font size         (1rem)
+ *   --dardanialabs-dp-padding         trigger padding           (0.85rem 1rem)
  *   --dardanialabs-dp-z               popup z-index             (9999)
  *   font-family is inherited, so each site's typeface flows straight in.
  */
 
 class DardaniaLabsDatepicker extends HTMLElement {
   static get observedAttributes() {
-    return ['value', 'min', 'max', 'locale', 'placeholder', 'disabled', 'error', 'clearable', 'today-button', 'quick-add'];
+    return ['value', 'min', 'max', 'locale', 'placeholder', 'disabled', 'error', 'clearable', 'today-button', 'quick-add', 'quick-add-base'];
   }
 
   constructor() {
@@ -144,6 +150,9 @@ class DardaniaLabsDatepicker extends HTMLElement {
   get quickAdd() { return this.getAttribute('quick-add') || ''; }
   set quickAdd(v) { this.setAttribute('quick-add', v == null ? '' : String(v)); }
 
+  get quickAddBase() { return this.getAttribute('quick-add-base'); }
+  set quickAddBase(v) { if (v == null) this.removeAttribute('quick-add-base'); else this.setAttribute('quick-add-base', String(v)); }
+
   /* ---------- dates: plain integers in, plain strings out ---------- */
 
   pad(n) { return String(n).padStart(2, '0'); }
@@ -218,13 +227,21 @@ class DardaniaLabsDatepicker extends HTMLElement {
 
   /* ---------- quick-add ---------- */
 
-  // "4y" → { n: 4, unit: 'y' }. Bare numbers mean years.
+  // "4y" → { n: 4, unit: 'y' }. Bare numbers mean years. "4y-1d" also
+  // subtracts days after the add — the contract-term convention.
   parseQuickAdd() {
-    const m = /^\s*\+?(\d+)\s*([ymwd])?\s*$/i.exec(this.quickAdd);
+    const m = /^\s*\+?(\d+)\s*([ymwd])?\s*(?:-\s*(\d+)\s*d)?\s*$/i.exec(this.quickAdd);
     if (!m) return null;
     const n = parseInt(m[1], 10);
     if (!n) return null;
-    return { n, unit: (m[2] || 'y').toLowerCase() };
+    return { n, unit: (m[2] || 'y').toLowerCase(), minus: m[3] ? parseInt(m[3], 10) : 0 };
+  }
+
+  // The shortcut adds to quick-add-base when that attribute exists; a
+  // present-but-unparseable base means "not ready yet" and disables it.
+  quickAddBaseParts() {
+    if (!this.hasAttribute('quick-add-base')) return this.parse(this.value) || this.todayParts();
+    return this.parse(this.getAttribute('quick-add-base'));
   }
 
   quickAddLabel(q) {
@@ -237,7 +254,8 @@ class DardaniaLabsDatepicker extends HTMLElement {
   applyQuickAdd() {
     const q = this.parseQuickAdd();
     if (!q) return;
-    const base = this.parse(this.value) || this.todayParts();
+    const base = this.quickAddBaseParts();
+    if (!base) return;
     let { y, m, d } = base;
     if (q.unit === 'y') y += q.n;
     else if (q.unit === 'm') {
@@ -252,6 +270,10 @@ class DardaniaLabsDatepicker extends HTMLElement {
     }
     // 31 Jan + 1 month, or 29 Feb + 1 year: keep the day inside the month.
     d = Math.min(d, this.daysInMonth(y, m));
+    if (q.minus) {
+      const t = new Date(y, m, d - q.minus);
+      y = t.getFullYear(); m = t.getMonth(); d = t.getDate();
+    }
     this.commit(this.clampIso(this.iso(y, m, d)));
   }
 
@@ -414,6 +436,7 @@ class DardaniaLabsDatepicker extends HTMLElement {
           --dp-cell-radius: var(--dardanialabs-dp-cell-radius, 9px);
           --dp-shadow: var(--dardanialabs-dp-shadow, 0 12px 36px rgba(40, 51, 40, 0.14));
           --dp-font-size: var(--dardanialabs-dp-font-size, 1rem);
+          --dp-padding: var(--dardanialabs-dp-padding, 0.85rem 1rem);
           --dp-z: var(--dardanialabs-dp-z, 9999);
         }
         [hidden] { display: none !important; }
@@ -427,7 +450,7 @@ class DardaniaLabsDatepicker extends HTMLElement {
           width: 100%;
           font-size: var(--dp-font-size);
           text-align: left;
-          padding: 0.85rem 1rem;
+          padding: var(--dp-padding);
           border: 1px solid var(--dp-border);
           border-radius: var(--dp-radius);
           background: var(--dp-bg);
@@ -550,7 +573,8 @@ class DardaniaLabsDatepicker extends HTMLElement {
           padding: 0.3rem 0.5rem;
           border-radius: 7px;
         }
-        .foot button:hover { background: var(--dp-hover-bg); }
+        .foot button:hover:not(:disabled) { background: var(--dp-hover-bg); }
+        .foot button:disabled { opacity: 0.35; cursor: default; }
 
         @media (prefers-reduced-motion: reduce) {
           .pop { transition: none; }
@@ -670,7 +694,8 @@ class DardaniaLabsDatepicker extends HTMLElement {
       ? `<button type="button" data-act="clear">${this.text('clear')}</button>` : '';
     const today = this.todayButton && this.inRange(this.todayIso())
       ? `<button type="button" data-act="today">${this.text('today')}</button>` : '';
-    const quick = q ? `<button type="button" data-act="quick">${this.quickAddLabel(q)}</button>` : '';
+    const quickOff = q && !this.quickAddBaseParts();
+    const quick = q ? `<button type="button" data-act="quick"${quickOff ? ' disabled' : ''}>${this.quickAddLabel(q)}</button>` : '';
     if (!clear && !today && !quick) return '';
     return `<div class="foot">${clear}<span class="right">${quick}${today}</span></div>`;
   }

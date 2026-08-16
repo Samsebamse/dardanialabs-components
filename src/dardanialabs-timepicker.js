@@ -55,6 +55,7 @@
  *   --dardanialabs-tp-cell-radius     option radius             (9px)
  *   --dardanialabs-tp-shadow          popup shadow              (0 12px 36px rgba(40,51,40,.14))
  *   --dardanialabs-tp-font-size       trigger font size         (1rem)
+ *   --dardanialabs-tp-padding         trigger padding           (0.85rem 1rem)
  *   --dardanialabs-tp-col-height      column height             (196px)
  *   --dardanialabs-tp-z               popup z-index             (9999)
  *   font-family is inherited, so each site's typeface flows straight in.
@@ -307,6 +308,7 @@ class DardaniaLabsTimepicker extends HTMLElement {
           --tp-cell-radius: var(--dardanialabs-tp-cell-radius, 9px);
           --tp-shadow: var(--dardanialabs-tp-shadow, 0 12px 36px rgba(40, 51, 40, 0.14));
           --tp-font-size: var(--dardanialabs-tp-font-size, 1rem);
+          --tp-padding: var(--dardanialabs-tp-padding, 0.85rem 1rem);
           --tp-col-height: var(--dardanialabs-tp-col-height, 196px);
           --tp-z: var(--dardanialabs-tp-z, 9999);
         }
@@ -321,7 +323,7 @@ class DardaniaLabsTimepicker extends HTMLElement {
           width: 100%;
           font-size: var(--tp-font-size);
           text-align: left;
-          padding: 0.85rem 1rem;
+          padding: var(--tp-padding);
           border: 1px solid var(--tp-border);
           border-radius: var(--tp-radius);
           background: var(--tp-bg);
