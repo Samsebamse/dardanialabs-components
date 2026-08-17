@@ -113,6 +113,24 @@
  * Icons inherit the surrounding text colour via `fill: currentColor`, so an
  * override should avoid hardcoded fills if it wants to keep theming.
  * Live elements re-render automatically when an override is applied.
+ *
+ * RENDERING — light DOM, on purpose. The fleet serves prerendered HTML
+ * snapshots to crawlers, and serializing a page does not serialize shadow
+ * roots — a shadow footer ships as an empty tag, so the legal identity and
+ * the privacy/terms links never reach any crawler that doesn't run scripts.
+ * Rendering into the element's own children puts the real markup in the
+ * page, where outerHTML, prerenderers, and link discovery all see it.
+ *
+ * The cost of light DOM is that the page's CSS now cascades in, so the
+ * footer defends itself: every class it emits is namespaced dl-footer__…,
+ * and one shared <style> (injected into <head> once per page, however many
+ * footers exist) pins margin, padding, list-style, font, line-height,
+ * color, text-decoration, background and border on everything it renders.
+ * Class selectors outrank a tenant's bare `a {}` / `p {}` / `ul {}` and any
+ * `* {}` reset, so global styling passes over the footer. Per-element
+ * attribute values (align, color, gap, …) travel as --dardanialabs-footer-*
+ * custom properties set inline on the host, which the shared sheet reads —
+ * so several footers with different attributes still share the one sheet.
  */
 
 // kind: 'url'          -> value is a link
@@ -178,9 +196,20 @@ class DardaniaLabsFooter extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
     this._remote = {};   // values loaded from the CMS
     this._loaded = false; // fetch runs once per element
+  }
+
+  // One shared stylesheet per page, whatever the number of footer elements.
+  // Every rule is anchored to a dl-footer__* class (or the tag itself), so
+  // its specificity beats a tenant's bare-element selectors and `* {}`
+  // resets, while the tenant's page stays untouched by it.
+  static injectStyles() {
+    if (document.getElementById('dardanialabs-footer-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dardanialabs-footer-styles';
+    style.textContent = FOOTER_CSS;
+    document.head.appendChild(style);
   }
 
   connectedCallback() {
@@ -552,104 +581,171 @@ class DardaniaLabsFooter extends HTMLElement {
       return out;
     }, []);
 
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: block;
-          font-family: inherit;
-          color: ${this.color || 'inherit'};
-          ${this.fontSize ? `font-size: ${this.fontSize};` : ''}
-          padding: 0;
-          margin: 0;
-        }
+    DardaniaLabsFooter.injectStyles();
 
-        .container {
-          display: flex;
-          flex-direction: column;
-          align-items: ${this.align};
-        }
+    // Attribute values reach the one shared stylesheet as inline custom
+    // properties on the host — inline wins every cascade, so a tenant sheet
+    // cannot redirect them, and each footer instance keeps its own values.
+    const setVar = (name, value) => (value
+      ? this.style.setProperty(name, value)
+      : this.style.removeProperty(name));
+    setVar('--dardanialabs-footer-align', this.align);
+    setVar('--dardanialabs-footer-text-align',
+      this.align === 'flex-start' ? 'left' : this.align === 'flex-end' ? 'right' : 'center');
+    setVar('--dardanialabs-footer-color', this.color);
+    setVar('--dardanialabs-footer-font-size', this.fontSize);
+    setVar('--dardanialabs-footer-social-gap', this.socialGap);
+    setVar('--dardanialabs-footer-gap', this.gap);
+    setVar('--dardanialabs-footer-icon-size', this.iconSize);
 
-        .socials {
-          display: flex;
-          gap: ${this.socialGap};
-          margin-bottom: ${this.gap};
-        }
-
-        .socials a {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: inherit;
-          cursor: pointer;
-          transition: opacity 0.2s ease;
-        }
-
-        .socials a:visited {
-          color: inherit;
-        }
-
-        .socials a:hover {
-          opacity: 0.7;
-        }
-
-        .socials svg {
-          display: block;      /* no inline baseline gap, so every icon sits identically */
-          width: ${this.iconSize};
-          height: ${this.iconSize};
-          fill: currentColor;
-        }
-
-        .copyright {
-          margin: 0;
-          text-align: ${this.align === 'flex-start' ? 'left' : this.align === 'flex-end' ? 'right' : 'center'};
-          /* One line on desktop, wrapping as words on narrow screens — never
-             mid-number (non-breaking spaces in the markup handle that). */
-          line-height: 1.6;
-        }
-
-        /* Dimmed so the separators divide without competing with the words. */
-        .sep {
-          opacity: 0.45;
-          padding: 0 0.15em;
-        }
-
-        .legal-links {
-          margin: 0.4em 0 0;
-          font-size: 0.92em;
-          text-align: inherit;
-        }
-
-        .legal-links a {
-          color: inherit;
-          text-decoration: none;
-          border-bottom: 1px solid currentColor;
-          padding-bottom: 1px;
-          opacity: 0.8;
-          transition: opacity 0.2s ease;
-        }
-
-        .legal-links a:visited { color: inherit; }
-        .legal-links a:hover { opacity: 1; }
-
-        .copyright a {
-          color: inherit;
-          text-decoration: none;
-          cursor: pointer;
-        }
-
-        .copyright a:visited {
-          color: inherit;
-        }
-      </style>
-
-      <div class="container">
-        ${socials.length > 0 ? `<div class="socials">${socials.join('')}</div>` : ''}
-        <p class="copyright">${segments.join(' <span class="sep">|</span> ')}</p>
-        ${legalLinks.length ? `<p class="legal-links">${legalLinks.join(' <span class="sep">·</span> ')}</p>` : ''}
+    this.innerHTML = `
+      <div class="dl-footer__container">
+        ${socials.length > 0 ? `<div class="dl-footer__socials">${socials.join('')}</div>` : ''}
+        <p class="dl-footer__copyright">${segments.join(' <span class="dl-footer__sep">|</span> ')}</p>
+        ${legalLinks.length ? `<p class="dl-footer__legal-links">${legalLinks.join(' <span class="dl-footer__sep">·</span> ')}</p>` : ''}
       </div>
     `;
   }
 }
+
+// Light-DOM defence: every property a tenant reset or bare element selector
+// (`* {}`, `a {}`, `p {}`, `ul {}`) would otherwise dictate is stated here
+// explicitly — margin, padding, list-style, font, line-height, color,
+// text-decoration, background, border — anchored to namespaced classes so
+// the footer renders identically on every site, whatever its stylesheet does.
+const FOOTER_CSS = `
+  dardanialabs-footer, rtek-footer {
+    display: block;
+    font-family: inherit;
+    color: var(--dardanialabs-footer-color, inherit);
+    font-size: var(--dardanialabs-footer-font-size, inherit);
+    padding: 0;
+    margin: 0;
+  }
+
+  .dl-footer__container {
+    display: flex;
+    flex-direction: column;
+    align-items: var(--dardanialabs-footer-align, center);
+    margin: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+    list-style: none;
+    background: transparent;
+    border: 0;
+  }
+
+  .dl-footer__socials {
+    display: flex;
+    gap: var(--dardanialabs-footer-social-gap, 2rem);
+    margin: 0 0 var(--dardanialabs-footer-gap, 0.5rem);
+    padding: 0;
+    list-style: none;
+  }
+
+  .dl-footer__socials a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+  }
+
+  .dl-footer__socials a:visited {
+    color: inherit;
+  }
+
+  .dl-footer__socials a:hover {
+    opacity: 0.7;
+  }
+
+  .dl-footer__socials svg {
+    display: block;      /* no inline baseline gap, so every icon sits identically */
+    width: var(--dardanialabs-footer-icon-size, 24px);
+    height: var(--dardanialabs-footer-icon-size, 24px);
+    margin: 0;
+    padding: 0;
+    fill: currentColor;
+  }
+
+  .dl-footer__copyright {
+    margin: 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+    list-style: none;
+    background: transparent;
+    text-align: var(--dardanialabs-footer-text-align, center);
+    /* One line on desktop, wrapping as words on narrow screens — never
+       mid-number (non-breaking spaces in the markup handle that). */
+    line-height: 1.6;
+  }
+
+  /* Dimmed so the separators divide without competing with the words. */
+  .dl-footer__sep {
+    opacity: 0.45;
+    margin: 0;
+    padding: 0 0.15em;
+    font: inherit;
+  }
+
+  .dl-footer__legal-links {
+    margin: 0.4em 0 0;
+    padding: 0;
+    font-family: inherit;
+    font-size: 0.92em;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+    list-style: none;
+    background: transparent;
+    text-align: inherit;
+  }
+
+  .dl-footer__legal-links a {
+    margin: 0;
+    padding: 0 0 1px;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid currentColor;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+  }
+
+  .dl-footer__legal-links a:visited { color: inherit; }
+  .dl-footer__legal-links a:hover { opacity: 1; }
+
+  .dl-footer__copyright a {
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .dl-footer__copyright a:visited {
+    color: inherit;
+  }
+`;
 
 const ICONS = {
   facebook: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg>`,
