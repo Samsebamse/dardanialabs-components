@@ -3,20 +3,32 @@
  * Copyright line + registered-company line + social links.
  *
  * The copyright line carries the business's registered name and its
- * registration number ("Acme SHPK · Nr. 812345678"), which most
+ * registration number ("Acme SHPK · NUI 812345678"), which most
  * jurisdictions expect a company website to display. Values come from the
  * same two places as everything else:
  *
- *   <x-footer legal-name="Acme SHPK" legal-number="Nr. 812345678"></x-footer>
+ *   <x-footer legal-name="Acme SHPK" company-number="812345678" registry="xk">
  *
- * or remotely, as site_content rows with type "legal_name" and
- * "legal_number" (alias "org_number") — remote wins, attributes are the
- * fallback. The number renders EXACTLY as given, label included — write
- * "Org.nr. 932 533 413" in Norway, "NUI 810095506" in Kosovo. The label is
- * a constant of the company, so it is stated once where the company is
- * stated, never derived. The copyright's start year resolves the same way: a "founded"
- * (alias "established") row overrides the founded attribute, and the range
- * always ends at the CURRENT year, read at render time.
+ * or remotely, as site_content rows with type "legal_name",
+ * "company_number" (aliases "legal_number" and "org_number") and
+ * "registry" — remote wins, attributes are the fallback. The copyright's
+ * start year resolves the same way: a "founded" (alias "established") row
+ * overrides the founded attribute, and the range always ends at the CURRENT
+ * year, read at render time.
+ *
+ * THE NUMBER IS STORED BARE AND THE LABEL IS LOOKED UP HERE. It used to be
+ * the other way round — each site stated "NUI 810095506" or "Org.nr. 932 533
+ * 413" in full and this file printed it verbatim — and that is exactly how it
+ * failed: a label that is written down six times gets written down six
+ * different ways. One fleet stored "NUI 810851916", another "NUI: 812427731",
+ * a third "Org.nr. 932 533 413", and nothing could tell which of them was a
+ * typo because the label and the number were one opaque string.
+ *
+ * The label is not a property of the company at all — it is the name the
+ * REGISTER uses for the numbers it issues, and a register has exactly one of
+ * those. So it belongs where every other one-per-register fact belongs: in a
+ * table, keyed by register, read at render time (REGISTRY_LABELS below). What
+ * a tenant stores is the only part that is genuinely theirs — the digits.
  *
  * Three centred lines, each of which disappears when it has nothing to say:
  *
@@ -37,11 +49,17 @@
  * A tenant with no number and no legal pages simply renders
  * "© years Company | Developer" — one line, nothing empty.
  *
- * lang="no" is the language the PAGE is read in, and it labels ONE thing:
- * the legal links. Set it from the site's language store and the footer
- * re-renders on every toggle; it falls back to <html lang>. Nothing about
- * the company's identity follows it — a Kosovo company keeps NUI on a
- * Norwegian page, because that is what its certificate says.
+ * lang="no" is the language the PAGE is read in. Set it from the site's
+ * language store and the footer re-renders on every toggle; it falls back to
+ * <html lang>. It words the legal links, and it chooses the SPELLING of the
+ * registry label where the register's own name has one — never WHICH label.
+ * A Kosovo company keeps NUI on a Norwegian page, because the register that
+ * issued the number did not change when the reader switched language; a
+ * Norwegian company's Org.nr. is simply read out as "Org. no." to an English
+ * reader, which is the same label, spelled for them. This distinction is not
+ * hypothetical: one tenant here is a Kosovo company running a
+ * Norwegian-language site, and deriving its label from lang would print a
+ * Norwegian register's abbreviation over a Kosovo register's number.
  *
  * Legal links appear only when given:
  *   <x-footer privacy-url="/personvern" terms-url="/vilkar" lang="no">
@@ -156,18 +174,48 @@ let PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 // from the CMS without a redeploy.
 const IDENTITY_ROWS = {
   legal_name: 'legal-name',
-  legal_number: 'legal-number',
-  org_number: 'legal-number',
+  company_number: 'company-number',
+  legal_number: 'company-number',
+  org_number: 'company-number',
+  registry: 'registry',
+  country: 'country',
   founded: 'founded',
   established: 'founded',
 };
 
-// The business number is printed EXACTLY as given, label and all:
-//   legal-number="Org.nr. 932 533 413"   legal-number="NUI 810095506"
-// There is no table mapping a country to its label, because the label is a
-// constant of the company — it never changes and never translates — so
-// deriving it bought nothing and cost a component release every time a new
-// country appeared. The site states it; the footer prints it.
+// What each company register calls the numbers it issues, so the tenant can
+// store the number alone. Keyed by the register — that is, by the country
+// that ISSUED the number, which is not the country the site is read in and
+// not the language it is read in.
+//
+//   default  the register's own name for it, used for every language that
+//            has no reading of its own. Most entries need nothing else,
+//            because most of these are proper nouns: NUI stands for Numri
+//            Unik i Identifikimit and stays NUI in an English sentence the
+//            same way ISBN does.
+//   <lang>   a reading of that same label for a page in that language. Only
+//            for registers whose label is a descriptive abbreviation rather
+//            than a name — Norway's "organisasjonsnummer" genuinely is the
+//            words "organisation number", so an English reader gets those
+//            words back; a Kosovar NUI has nothing to translate.
+//
+// Adding a register is one entry. Add one ONLY with its official
+// abbreviation in hand: an invented label is a false legal statement on
+// every page it reaches, which is worse than the number standing alone —
+// hence resolveRegistryLabel() returning '' for anything not listed here
+// rather than falling back to a plausible-looking guess.
+const REGISTRY_LABELS = {
+  // Kosovo, ARBK — Numri Unik i Identifikimit.
+  xk: { default: 'NUI' },
+  // Norway, Brønnøysundregistrene — organisasjonsnummer. Swedish and Danish
+  // readers get the same "Org.nr." the Norwegian one does; the sq reading
+  // spells out the words rather than borrowing a Nordic abbreviation.
+  no: { default: 'Org.nr.', en: 'Org. no.', sq: 'Nr. org.' },
+  // Denmark, Erhvervsstyrelsen — CVR-nummer, the register's own initials.
+  dk: { default: 'CVR-nr.', en: 'CVR no.' },
+  // Albania, QKB — NIPT, the identification number printed on every invoice.
+  al: { default: 'NIPT' },
+};
 
 // Legal-page link labels, in the language the PAGE is being read in — the
 // only thing here that follows the reader rather than the company.
@@ -186,7 +234,7 @@ class DardaniaLabsFooter extends HTMLElement {
   static get observedAttributes() {
     return [
       'company', 'founded', 'developer', 'developer-url',
-      'legal-name', 'legal-number', 'lang',
+      'legal-name', 'company-number', 'legal-number', 'registry', 'country', 'lang',
       'privacy-url', 'terms-url',
       'align', 'color', 'font-size', 'social-gap', 'gap', 'icon-size',
       'src', 'client-id', 'api', 'icons', 'platforms',
@@ -388,6 +436,50 @@ class DardaniaLabsFooter extends HTMLElement {
     return (this._remote[key] || this.getAttribute(key) || '').trim();
   }
 
+  // The registration number, by whichever name the page calls it.
+  // company-number is the spelling everything is moving to; legal-number is
+  // what the fleet's markup already says, and reading both means a site can
+  // be migrated on its own schedule instead of on this file's release.
+  get companyNumber() {
+    return (this._remote['company-number']
+      || this.getAttribute('company-number')
+      || this.getAttribute('legal-number')
+      || '').trim();
+  }
+
+  // Which register issued the number — stated, never deduced.
+  //
+  // An explicit `registry` wins; `country` stands in for it, because a
+  // company registers in the country it is a company OF, so for every tenant
+  // here the two are the same value and asking for both would be ceremony.
+  //
+  // Nothing further is tried. The page's language is deliberately NOT a
+  // fallback: it says where the READER is, and one tenant on this fleet is a
+  // Kosovo company publishing in Norwegian, so language would confidently
+  // hand it the wrong register. A number with no label is still true.
+  get registry() {
+    return (this.valueFor('registry') || this.valueFor('country'))
+      .toLowerCase().trim();
+  }
+
+  // The label to print in front of the number, or '' for none.
+  //
+  // '' is returned for two different reasons and both are deliberate. An
+  // unknown register has no label we are entitled to invent. And a number
+  // that still carries LETTERS is a value from before the label moved in
+  // here — "NUI 812451269", "Org.nr. 932 533 413" — so it already contains
+  // its own label and prefixing a second one would print "NUI NUI …". Every
+  // register here numbers with digits and separators only, so a letter in
+  // the value can only be a label that came along with it. This check is not
+  // temporary: it is what lets a database migrate late, or not at all,
+  // without the footer of that one site going wrong in the meantime.
+  labelFor(number) {
+    if (/[a-z]/i.test(number)) return '';
+    const entry = REGISTRY_LABELS[this.registry];
+    if (!entry) return '';
+    return entry[this.lang] || entry.default || '';
+  }
+
   // Build the href for a platform. Accepts a full URL, a bare domain, or —
   // for WhatsApp/Viber — a plain phone number as a client would naturally type it.
   hrefFor(platform, value) {
@@ -528,10 +620,17 @@ class DardaniaLabsFooter extends HTMLElement {
     // as belonging to the wrong company.
     const legalName = this.localized(this.valueFor('legal-name'));
     const companyName = this.localized(this.company);
-    const rawNumber = this.valueFor('legal-number');
-    // Printed as given; empty renders nothing at all. Non-breaking spaces
-    // keep "Org.nr. 932 533 413" from splitting across a line.
-    const legalNumber = rawNumber.replace(/ /g, ' ');
+    // The stored value is the number alone; the register's label is put in
+    // front of it here (and is empty for a register we have no label for, or
+    // for a value that already carries one — see labelFor).
+    const rawNumber = this.companyNumber;
+    const label = this.labelFor(rawNumber);
+    // Empty renders nothing at all. Non-breaking spaces then run through the
+    // whole finished string, label included, so "Org.nr. 932 533 413" cannot
+    // split across a line — least of all at the space after the label, which
+    // would strand an abbreviation at one line's end and its number at the
+    // next line's start.
+    const legalNumber = (label ? `${label} ${rawNumber}` : rawNumber).replace(/ /g, ' ');
 
     // Two separators, each meaning one thing. A BULLET joins items of the
     // same kind - a company and its registration number, one legal link and

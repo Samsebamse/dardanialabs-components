@@ -43,6 +43,8 @@ the script URL. New sites should use the `dardanialabs-*` names everywhere
 ```html
 <dardanialabs-footer
   company="Company Name"
+  company-number="812451269"
+  registry="xk"
   founded="2020"
   facebook="https://facebook.com/…"
   instagram="https://instagram.com/…"
@@ -51,11 +53,26 @@ the script URL. New sites should use the `dardanialabs-*` names everywhere
 ></dardanialabs-footer>
 ```
 
-Attributes: `company`, `founded`, `facebook`, `instagram`, `tiktok`, `x`,
-`snapchat`, `linkedin`, `whatsapp`, `developer`, `developer-url`, `align`,
-`color`, `font-size`, `social-gap`, `gap`. Social icons render only for the
-links you provide. The component inherits `font-family`, `color` and
-`background` from its parent element.
+Attributes: `company`, `legal-name`, `company-number`, `registry`, `country`,
+`founded`, `lang`, `privacy-url`, `terms-url`, `facebook`, `instagram`,
+`tiktok`, `x`, `snapchat`, `linkedin`, `whatsapp`, `developer`,
+`developer-url`, `align`, `color`, `font-size`, `social-gap`, `gap`. Social
+icons render only for the links you provide. The component inherits
+`font-family`, `color` and `background` from its parent element.
+
+`company-number` is the registration number on its own — digits, no label.
+The label belongs to the register that issued the number, so it is looked up
+from `registry` (the ISO country code of that register: `xk`, `no`, `dk`,
+`al`; `country` is read as a stand-in when `registry` is absent) and rendered
+in front of it — `NUI 812451269`, `Org.nr. 932 533 413`. Page `lang` picks
+the spelling where the label has one (`Org. no.` in English), never which
+label. A register the component has no entry for renders the bare number
+rather than a guessed abbreviation.
+
+Values may equally come from the CMS: `company_number` (aliases
+`legal_number`, `org_number`), `registry`, `legal_name`, `founded`. A value
+that still arrives with its label baked in — `NUI 812451269` — is printed as
+it stands, so a site works before, during and after that data is migrated.
 
 ## `<dardanialabs-photoslider>`
 
