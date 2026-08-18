@@ -483,10 +483,10 @@ class DardaniaLabsFooter extends HTMLElement {
   // temporary: it is what lets a database migrate late, or not at all,
   // without the footer of that one site going wrong in the meantime.
   labelFor(number) {
-    // No number, no label: a lone "Legal Nr." beside nothing reads worse than
-    // silence, and this line is built to disappear when it has nothing to say.
-    if (!number) return '';
-    if (/[a-z]/i.test(number)) return '';
+    // Nothing to label, or a value that already carries its own. A lone
+    // "Legal Nr." beside nothing reads worse than silence, and this line is
+    // built to disappear when it has nothing to say.
+    if (!number || /[a-z]/i.test(number)) return '';
     const entry = REGISTRY_LABELS[this.registry] ?? FALLBACK_LABEL;
     return entry[this.lang] ?? entry.default ?? '';
   }
