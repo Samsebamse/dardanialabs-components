@@ -185,13 +185,82 @@ Theming (pre-rename `--rtek-*` names still honored as fallbacks):
 | `--dardanialabs-error` | `#b3402a` | Error color. |
 | `--dardanialabs-success` | `#3d5142` | Success color. |
 
+## `dardanialabs-richtext.js`
+
+A plain ES module (no custom element) that turns a CMS text field into real
+markup. Use it **everywhere a CMS value used to reach `innerHTML`** — that
+habit turned every plain-text field into a markup field, and tenants answered
+it by typing their own pseudo-markup (`• Item<br/>`), which is neither a list
+nor styleable nor announced as a list by a screen reader.
+
+```js
+import { renderInto, toFragment, CLASSES } from './dardanialabs-richtext.js';
+
+renderInto(cardBody, record.description);             // blocks: <p> / <ul> / <ol>
+renderInto(heading, record.title, { inline: true });  // inline only, no <p> wrapper
+node.appendChild(toFragment(record.description));     // build it yourself
+```
+
+Sites without a bundler load it as a module script and read the same API off
+the global it publishes — module scripts run before `window.onload`, so it is
+in place by the time a classic `index.js` renders:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@main/src/dardanialabs-richtext.css?v=1.12.0">
+<script type="module" src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@main/src/dardanialabs-richtext.js?v=1.12.0"></script>
+<script>window.dardanialabsRichtext.renderInto(el, text);</script>
+```
+
+### Syntax
+
+| Input | Output |
+|---|---|
+| `- item` / `* item` (consecutive lines) | one `<ul>`, an `<li>` per line |
+| `1. item` (consecutive lines, any digits) | one `<ol>` |
+| blank line | ends the block; each block of prose becomes a `<p>` |
+| single newline inside a paragraph | a space — **not** a `<br>` |
+| `**text**` | `<strong>` |
+| `*text*` | `<em>` |
+| `[label](https://…)` | `<a target="_blank" rel="noopener noreferrer">` |
+| anything else | literal text |
+
+### Safety
+
+It is a **whitelist, not a sanitizer**. A sanitizer starts from "allow
+everything, then subtract the dangerous parts" — a list you can never finish.
+
+1. `innerHTML` is never used anywhere in the module. Nodes come from
+   `createElement`, characters from `textContent`, so `<` is text by
+   construction: a tenant typing `<script>` sees `<script>` on the page. There
+   is nothing to escape, so there is nothing an escaper could miss.
+2. A link target must start with `https://` (case-insensitive). `javascript:`,
+   `data:`, `//host`, relative paths — none of them link; the whole
+   `[label](…)` prints as typed.
+3. Unknown syntax degrades to literal text, never to an error and never to a
+   silent drop. Legacy `<br/>` therefore becomes visible characters — the
+   loudest possible hint that the field needs cleaning up.
+
+### Classes and theming
+
+Every emitted element carries its own class, so a stylesheet never depends on
+an ancestor: `dl-rt` (stamped by `renderInto` on the element it fills),
+`dl-rt-p`, `dl-rt-ul`, `dl-rt-ol`, `dl-rt-li`, `dl-rt-link`. The names are
+also exported as `CLASSES`.
+
+`src/dardanialabs-richtext.css` carries the list *mechanics* — markers
+`outside` with a gutter so a wrapped line hangs under the first character,
+never `inside`; spacing between items; a measure. Tenants theme colour and
+rhythm through `--dardanialabs-rt-measure`, `-line-height`, `-block-gap`,
+`-item-gap`, `-indent`, `-bullet`, `-number`, `-marker-color`,
+`-marker-size`, `-link-color`.
+
 ## Releasing
 
 Published versions are immutable — the publish script refuses to overwrite an
 existing version.
 
 1. Edit the component in `src/`.
-2. Bump `version` in `package.json`, run `node test/smoke.mjs`, commit.
+2. Bump `version` in `package.json`, run `npm test`, commit.
 3. Tag: `git tag vX.Y.Z && git push origin main --tags`.
 4. Publish to the CDN:
    `node --env-file=<path-to-env> scripts/publish.mjs`
@@ -214,6 +283,13 @@ existing version.
   hover-animated cards and drop-shadow wrappers create constantly. Fixed
   positioning containing blocks are a spec behavior, not a browser bug;
   appending the overlay to `document.body` is the fix.
+- **A CMS value never reaches `innerHTML` or `v-html`.** Use
+  `dardanialabs-richtext.js`. Injecting the value silently redefines every
+  plain-text field as a markup field, and tenants then fill those fields with
+  pseudo-markup because it is the only formatting they have — which is how
+  Bymico ended up with hand-typed `• Item<br/>` lists that no stylesheet could
+  align. The parser gives them real lists and closes the injection in the same
+  move.
 - **Dots render below the image by default.** Visitors need to see how many
   photos a gallery holds without anything covering the picture;
   `dots="overlay"` is the explicit opt-in for full-bleed heroes.

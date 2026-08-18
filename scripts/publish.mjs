@@ -1,7 +1,7 @@
 /**
  * Publish the components to the CDN bucket.
  *
- * Uploads every src/*.js file to the R2 bucket `dardanialabs-master` under
+ * Uploads every src/*.js and src/*.css file to the R2 bucket `dardanialabs-master` under
  * `components/v{version}/{filename}` — the version comes from package.json.
  * Published versions are IMMUTABLE: every target key is HEAD-checked first,
  * and if any already exists the whole run aborts. To ship a change, bump the
@@ -22,7 +22,12 @@ import { fileURLToPath } from 'node:url';
 import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const BUCKET = 'dardanialabs-master';
-const CONTENT_TYPE = 'application/javascript; charset=utf-8';
+// A stylesheet served as javascript is ignored by the browser without a word of
+// warning, so the type follows the extension rather than one constant.
+const CONTENT_TYPES = {
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+};
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -46,9 +51,9 @@ if (!version) {
 }
 
 const srcDir = path.join(root, 'src');
-const files = (await readdir(srcDir)).filter((f) => f.endsWith('.js')).sort();
+const files = (await readdir(srcDir)).filter((f) => CONTENT_TYPES[path.extname(f)]).sort();
 if (!files.length) {
-  console.error('No .js files found in src/ — nothing to publish.');
+  console.error('No publishable files found in src/ — nothing to publish.');
   process.exit(1);
 }
 
@@ -91,7 +96,7 @@ for (const file of files) {
     Bucket: BUCKET,
     Key: key,
     Body: body,
-    ContentType: CONTENT_TYPE,
+    ContentType: CONTENT_TYPES[path.extname(file)],
     CacheControl: CACHE_CONTROL,
   }));
   console.log(`Uploaded ${key} (${body.length} bytes)`);

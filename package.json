@@ -1,12 +1,12 @@
 {
   "name": "dardanialabs-components",
-  "version": "1.11.1",
-  "description": "Framework-free web components: footer, photo slider, mail form, spinner. One script tag per component, no build step.",
+  "version": "1.12.0",
+  "description": "Framework-free web components and shared modules: footer, photo slider, mail form, spinner, date/time pickers, validators, rich text. One script tag per file, no build step.",
   "type": "module",
   "license": "MIT",
   "author": "Dardania Labs",
   "scripts": {
-    "test": "node test/smoke.mjs",
+    "test": "node test/smoke.mjs && node test/richtext.mjs",
     "publish:cdn": "node scripts/publish.mjs"
   },
   "devDependencies": {

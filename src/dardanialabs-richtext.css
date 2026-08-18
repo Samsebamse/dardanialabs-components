@@ -1,0 +1,98 @@
+/**
+ * dardanialabs-richtext.css — the mechanics for markup built by
+ * dardanialabs-richtext.js. Load it wherever that module renders:
+ *
+ *   <link rel="stylesheet" href="…/src/dardanialabs-richtext.css?v=1.12.0">
+ *
+ * The split is deliberate. What lives here is the part that is right on every
+ * site and wrong to re-decide per tenant — where a marker sits, how a wrapped
+ * line hangs, how much air separates two items. What a tenant owns is colour
+ * and rhythm, and that arrives through the --dardanialabs-rt-* custom
+ * properties below; each is read at its point of use with its default inline,
+ * so a rule still works when nothing has been set anywhere.
+ *
+ *   --dardanialabs-rt-measure       max line length of a block   (68ch)
+ *   --dardanialabs-rt-line-height   leading inside a block       (1.7)
+ *   --dardanialabs-rt-block-gap     space between two blocks     (0.85em)
+ *   --dardanialabs-rt-item-gap      space between two items      (0.4em)
+ *   --dardanialabs-rt-indent        width of the marker gutter   (1.35em)
+ *   --dardanialabs-rt-bullet        <ul> marker shape            (disc)
+ *   --dardanialabs-rt-number        <ol> marker shape            (decimal)
+ *   --dardanialabs-rt-marker-color  marker colour                (currentColor)
+ *   --dardanialabs-rt-marker-size   marker size                  (1em)
+ *   --dardanialabs-rt-link-color    link colour                  (currentColor)
+ *
+ * Nothing here sets a font, a text colour or a background: the block inherits
+ * the surface it was dropped into, so it looks native on every tenant.
+ */
+
+.dl-rt-p,
+.dl-rt-ul,
+.dl-rt-ol {
+	/* A measure, not a width — a description that runs the full width of a wide
+	   card is physically hard to read back to the start of the next line. */
+	max-width: var(--dardanialabs-rt-measure, 68ch);
+	line-height: var(--dardanialabs-rt-line-height, 1.7);
+}
+
+/* Blocks own the space BETWEEN them and never the space around the outside:
+   the container's own padding decides the outer edge, and a leading or
+   trailing margin here would fight it. */
+.dl-rt-p,
+.dl-rt-ul,
+.dl-rt-ol {
+	margin: 0;
+}
+
+.dl-rt-p + .dl-rt-p,
+.dl-rt-p + .dl-rt-ul,
+.dl-rt-p + .dl-rt-ol,
+.dl-rt-ul + .dl-rt-p,
+.dl-rt-ol + .dl-rt-p,
+.dl-rt-ul + .dl-rt-ul,
+.dl-rt-ul + .dl-rt-ol,
+.dl-rt-ol + .dl-rt-ul,
+.dl-rt-ol + .dl-rt-ol {
+	margin-top: var(--dardanialabs-rt-block-gap, 0.85em);
+}
+
+.dl-rt-ul,
+.dl-rt-ol {
+	/* "outside", never "inside". Outside puts the marker in a gutter of its own,
+	   so the second line of a long item starts under the FIRST CHARACTER of the
+	   first line. Inside reflows the wrapped text back under the bullet and the
+	   left edge of the item disintegrates — which is the whole reason a real
+	   list beats hand-typed "• " bullets. */
+	list-style-position: outside;
+	padding-inline-start: var(--dardanialabs-rt-indent, 1.35em);
+	/* A list cannot be centred. Outside markers are placed relative to the
+	   item's start edge, so centring gives every line a different left edge and
+	   leaves the markers stranded. Prose may still be centred by the tenant;
+	   a list may not. */
+	text-align: start;
+}
+
+.dl-rt-ul {
+	list-style-type: var(--dardanialabs-rt-bullet, disc);
+}
+
+.dl-rt-ol {
+	list-style-type: var(--dardanialabs-rt-number, decimal);
+}
+
+/* Rhythm goes between items only, so a one-item list is not taller than it
+   needs to be and a list never adds space above its own first line. */
+.dl-rt-li + .dl-rt-li {
+	margin-top: var(--dardanialabs-rt-item-gap, 0.4em);
+}
+
+.dl-rt-li::marker {
+	color: var(--dardanialabs-rt-marker-color, currentColor);
+	font-size: var(--dardanialabs-rt-marker-size, 1em);
+}
+
+.dl-rt-link {
+	color: var(--dardanialabs-rt-link-color, currentColor);
+	/* These links always leave the site, so they stay visibly links. */
+	text-underline-offset: 0.15em;
+}
