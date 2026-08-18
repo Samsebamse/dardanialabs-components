@@ -185,5 +185,69 @@ const render = (text, options) => renderInto(dom.window.document.createElement('
 		&& typeof globalThis.dardanialabsRichtext?.toFragment === 'function');
 }
 
+// ── Headings ──
+{
+	const one = render('# Åpningstider');
+	check('# becomes a heading', () => one.querySelector('h3')?.textContent === 'Åpningstider');
+	check('# carries both the shared and the level class', () => {
+		const h = one.querySelector('h3');
+		return h.classList.contains(CLASSES.heading) && h.classList.contains(CLASSES.headingMajor);
+	});
+
+	const two = render('## Tjenester');
+	check('## becomes the next level down', () => two.querySelector('h4')?.textContent === 'Tjenester');
+	check('## carries the minor class', () =>
+		two.querySelector('h4').classList.contains(CLASSES.headingMinor));
+
+	check('headingBase moves both levels together', () => {
+		const deep = render('# A\n\n## B', { headingBase: 4 });
+		return deep.querySelector('h4')?.textContent === 'A' && deep.querySelector('h5')?.textContent === 'B';
+	});
+	check('headingBase never rises above the page-owned levels', () => {
+		const shallow = render('# A', { headingBase: 1 });
+		return shallow.querySelector('h1') === null && shallow.querySelector('h3')?.textContent === 'A';
+	});
+	check('headingBase never runs past h6', () => {
+		const floor = render('## B', { headingBase: 9 });
+		return floor.querySelector('h6')?.textContent === 'B';
+	});
+	check('a garbage headingBase falls back to the default', () =>
+		render('# A', { headingBase: 'nonsense' }).querySelector('h3')?.textContent === 'A');
+
+	check('###+ is not a heading', () => {
+		const many = render('### Too deep');
+		return many.querySelector('h3, h4, h5, h6') === null && many.textContent === '### Too deep';
+	});
+	check('a hashtag without a space stays literal', () => {
+		const tag = render('#bymico er best');
+		return tag.querySelector('h3') === null && tag.textContent === '#bymico er best';
+	});
+	check('a lone # is text, not an empty heading', () => {
+		const bare = render('#');
+		return bare.querySelector('h3') === null && bare.textContent === '#';
+	});
+
+	check('a heading formats inline syntax inside itself', () =>
+		render('# Se **prisene**').querySelector('h3 strong')?.textContent === 'prisene');
+	check('a heading closes the paragraph before it', () => {
+		const mixed = render('Vi hjelper deg.\n# Tjenester');
+		return mixed.querySelector('p')?.textContent === 'Vi hjelper deg.'
+			&& mixed.querySelector('h3')?.textContent === 'Tjenester';
+	});
+	check('a heading closes the list before it, and the next list is its own', () => {
+		const mixed = render('- a\n# Tittel\n- b');
+		return mixed.querySelectorAll('ul').length === 2 && mixed.querySelectorAll('li').length === 2;
+	});
+	check('a heading is not swallowed into the paragraph after it', () => {
+		const mixed = render('# Tittel\nBrødtekst her.');
+		return mixed.querySelector('h3')?.textContent === 'Tittel'
+			&& mixed.querySelector('p')?.textContent === 'Brødtekst her.';
+	});
+	check('inline mode never emits a heading element', () => {
+		const inline = render('# Tittel', { inline: true });
+		return inline.querySelector('h3') === null && inline.textContent === '# Tittel';
+	});
+}
+
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

@@ -22,7 +22,7 @@
  *
  *   // Sites with no bundler load this file with a module script tag and read
  *   // the same two functions off the global it publishes (see BOOTSTRAP below):
- *   //   <script type="module" src="…/dardanialabs-richtext.js?v=1.12.0"></script>
+ *   //   <script type="module" src="…/dardanialabs-richtext.js?v=1.13.0"></script>
  *   //   window.dardanialabsRichtext.renderInto(el, text);
  *
  * Syntax — this table is the whole language. There is deliberately no more:
@@ -30,6 +30,8 @@
  *   - item            consecutive lines → ONE <ul>, an <li> per line
  *   * item            the same (either marker, so both habits work)
  *   1. item           consecutive lines (any digits) → one <ol>
+ *   # text            a heading, one step up in size  (<h3> by default)
+ *   ## text           a smaller heading                (<h4> by default)
  *   (blank line)      ends the block; each block of prose becomes its own <p>
  *   (single newline)  a space inside the paragraph — NOT a line break
  *   **text**          <strong>
@@ -37,9 +39,16 @@
  *   [label](https://…) <a target="_blank" rel="noopener noreferrer">
  *   anything else     literal text
  *
+ * There is no way to set a size in points or pixels, and that is the design.
+ * A tenant asking for "bigger text" wants a heading — something that reads as a
+ * label for what follows. Handing out absolute sizes instead produces text that
+ * is the wrong size on a phone, wrong again next to a heading the site already
+ * has, and unstyleable the day the site is redesigned. The two levels here move
+ * with the surface they land on and mean something to a search engine.
+ *
  * Safety — three rules that make this a whitelist, not a sanitizer. A sanitizer
  * starts from "allow everything, then subtract the dangerous parts", which is a
- * list you can never finish. This starts from nothing and adds six constructs:
+ * list you can never finish. This starts from nothing and adds seven constructs:
  *
  *   1. innerHTML is NEVER used anywhere in this file. Every node comes from
  *      document.createElement and every character from textContent, so "<" is
@@ -72,12 +81,29 @@ export const CLASSES = {
 	numberList: 'dl-rt-ol',
 	item: 'dl-rt-li',
 	link: 'dl-rt-link',
+	heading: 'dl-rt-h',        // on every heading, whatever its level
+	headingMajor: 'dl-rt-h1',  // #
+	headingMinor: 'dl-rt-h2',  // ##
 };
 
 // A line is a list item only with a marker AND a space after it, so "*text*"
 // at the start of a line stays emphasis instead of turning into a bullet.
 const BULLET_LINE = /^[ \t]*[-*][ \t]+(.*)$/;
 const NUMBER_LINE = /^[ \t]*\d+\.[ \t]+(.*)$/;
+
+// Two heading levels, and deliberately no more: the tenant is labelling parts
+// of one field, not building a document outline. The space after # is required
+// for the same reason as above, so "#tag" stays a literal hashtag.
+const HEADING_LINE = /^[ \t]*(#{1,2})[ \t]+(.*)$/;
+
+// Where those two levels land in the page's own outline. A CMS field is
+// rendered inside something that already has a title, so the default starts at
+// h3 and a caller that sits deeper passes its own base. Headings never become
+// h1 or h2: those belong to the page, and a service card minting a second h1
+// would damage the outline every SEO tool reads.
+const DEFAULT_HEADING_BASE = 3;
+const MIN_HEADING_BASE = 3;
+const MAX_HEADING_LEVEL = 6;
 
 // The three inline constructs in one alternation, tried in this order so "**"
 // wins over "*". Kept as a source string, not a RegExp: the scanner recurses
@@ -137,7 +163,11 @@ const appendInline = (doc, parent, text, depth = 0) => {
 };
 
 /** Append `text` to `target` as <p>/<ul>/<ol> blocks. */
-const appendBlocks = (doc, target, text) => {
+const appendBlocks = (doc, target, text, headingBase = DEFAULT_HEADING_BASE) => {
+	const base = Math.min(
+		Math.max(Math.trunc(Number(headingBase)) || DEFAULT_HEADING_BASE, MIN_HEADING_BASE),
+		MAX_HEADING_LEVEL,
+	);
 	const lines = normalize(text).split('\n');
 	let list = null;      // the <ul>/<ol> currently accepting items
 	let listTag = '';
@@ -162,6 +192,22 @@ const appendBlocks = (doc, target, text) => {
 			listTag = '';
 			continue;
 		}
+		const headingParts = HEADING_LINE.exec(line);
+		// A "#" with nothing after it is not a heading, it is a stray character;
+		// letting it through would emit an empty heading the tenant cannot see.
+		if (headingParts && headingParts[2].trim()) {
+			closeParagraph();
+			list = null;
+			listTag = '';
+			const minor = headingParts[1].length === 2;
+			const level = Math.min(base + (minor ? 1 : 0), MAX_HEADING_LEVEL);
+			const h = doc.createElement(`h${level}`);
+			h.className = `${CLASSES.heading} ${minor ? CLASSES.headingMinor : CLASSES.headingMajor}`;
+			appendInline(doc, h, headingParts[2].trim());
+			target.appendChild(h);
+			continue;
+		}
+
 		const bullet = BULLET_LINE.exec(line);
 		const number = bullet ? null : NUMBER_LINE.exec(line);
 		if (bullet || number) {
@@ -191,8 +237,9 @@ const appendBlocks = (doc, target, text) => {
 
 /** Parse `text` into a DocumentFragment. Options: `inline` skips the block
  *  layer, for headings and other places where a <p> would be wrong markup;
- *  `document` builds the nodes in another document (an iframe, a test DOM)
- *  instead of the ambient one. */
+ *  `headingBase` is the level `#` becomes (default 3, floor 3) for a caller
+ *  that renders deeper in the page than usual; `document` builds the nodes in
+ *  another document (an iframe, a test DOM) instead of the ambient one. */
 export const toFragment = (text, options = {}) => {
 	const doc = options.document || globalThis.document;
 	const fragment = doc.createDocumentFragment();
@@ -202,7 +249,7 @@ export const toFragment = (text, options = {}) => {
 		const oneLine = normalize(text).split('\n').map((line) => line.trim()).filter(Boolean).join(' ');
 		appendInline(doc, fragment, oneLine);
 	} else {
-		appendBlocks(doc, fragment, text);
+		appendBlocks(doc, fragment, text, options.headingBase);
 	}
 	return fragment;
 };
