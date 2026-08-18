@@ -217,6 +217,15 @@ const REGISTRY_LABELS = {
   al: { default: 'NIPT' },
 };
 
+// The label for a register we have no entry for — and for a company that
+// never told us which register issued its number. "Legal Nr." names the KIND
+// of number without naming a register, so it can never make the false claim
+// that "Org.nr." on a Kosovo company would. Same shape as the entries above,
+// so a language reading can be added here exactly as it is anywhere else.
+const FALLBACK_LABEL = { default: 'Legal Nr.' };
+
+
+
 // Legal-page link labels, in the language the PAGE is being read in — the
 // only thing here that follows the reader rather than the company.
 // Set `lang` from the site's language store and the footer
@@ -474,10 +483,12 @@ class DardaniaLabsFooter extends HTMLElement {
   // temporary: it is what lets a database migrate late, or not at all,
   // without the footer of that one site going wrong in the meantime.
   labelFor(number) {
+    // No number, no label: a lone "Legal Nr." beside nothing reads worse than
+    // silence, and this line is built to disappear when it has nothing to say.
+    if (!number) return '';
     if (/[a-z]/i.test(number)) return '';
-    const entry = REGISTRY_LABELS[this.registry];
-    if (!entry) return '';
-    return entry[this.lang] || entry.default || '';
+    const entry = REGISTRY_LABELS[this.registry] ?? FALLBACK_LABEL;
+    return entry[this.lang] ?? entry.default ?? '';
   }
 
   // Build the href for a platform. Accepts a full URL, a bare domain, or —
