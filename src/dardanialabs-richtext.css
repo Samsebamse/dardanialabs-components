@@ -2,7 +2,7 @@
  * dardanialabs-richtext.css — the mechanics for markup built by
  * dardanialabs-richtext.js. Load it wherever that module renders:
  *
- *   <link rel="stylesheet" href="…/src/dardanialabs-richtext.css?v=1.13.0">
+ *   <link rel="stylesheet" href="…/src/dardanialabs-richtext.css?v=1.14.0">
  *
  * The split is deliberate. What lives here is the part that is right on every
  * site and wrong to re-decide per tenant — where a marker sits, how a wrapped

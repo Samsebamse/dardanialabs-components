@@ -185,6 +185,45 @@ const render = (text, options) => renderInto(dom.window.document.createElement('
 		&& typeof globalThis.dardanialabsRichtext?.toFragment === 'function');
 }
 
+// ── The ordinal rule: a date at the start of a line is not a list ──
+{
+	// Norwegian writes dates exactly the way a numbered list starts, and this
+	// is opening-hours text — the content the CMS help panel showcases.
+	const date = render('14. august stenger vi kl 16.');
+	check('a date line is prose, not a list', () => date.querySelector('ol') === null);
+	check('a date keeps its own number', () =>
+		date.textContent === '14. august stenger vi kl 16.');
+
+	check('17. mai survives', () => render('17. mai holder vi stengt.').textContent === '17. mai holder vi stengt.');
+	check('a date after a paragraph is still prose', () => {
+		const mixed = render('Vi har åpent hver dag.\n\n24. desember: 09-14.');
+		return mixed.querySelector('ol') === null && mixed.querySelectorAll('p').length === 2;
+	});
+
+	// The feature still has to work.
+	check('a list starting at 1 is still a list', () => {
+		const list = render('1. Befaring\n2. Rapport');
+		return list.querySelectorAll('li').length === 2 && !list.querySelector('ol').hasAttribute('start');
+	});
+	check('the lazy "1. 1. 1." habit still numbers correctly', () => {
+		const lazy = render('1. En\n1. To\n1. Tre');
+		return lazy.querySelectorAll('ol').length === 1 && lazy.querySelectorAll('li').length === 3;
+	});
+	check('an open list swallows any number that follows', () =>
+		render('1. En\n7. To').querySelectorAll('li').length === 2);
+
+	// A tenant who puts air between items means one list, not three.
+	check('a blank-line-separated list resumes instead of restarting', () => {
+		const split = render('1. En\n\n2. To');
+		const lists = split.querySelectorAll('ol');
+		return lists.length === 2 && lists[1].getAttribute('start') === '2';
+	});
+	check('a number that resumes nothing is prose', () =>
+		render('2. Rapport').querySelector('ol') === null);
+	check('a year at the start of a line is prose', () =>
+		render('2026. Et godt år.').querySelector('ol') === null);
+}
+
 // ── Headings ──
 {
 	const one = render('# Åpningstider');

@@ -22,14 +22,16 @@
  *
  *   // Sites with no bundler load this file with a module script tag and read
  *   // the same two functions off the global it publishes (see BOOTSTRAP below):
- *   //   <script type="module" src="…/dardanialabs-richtext.js?v=1.13.0"></script>
+ *   //   <script type="module" src="…/dardanialabs-richtext.js?v=1.14.0"></script>
  *   //   window.dardanialabsRichtext.renderInto(el, text);
  *
  * Syntax — this table is the whole language. There is deliberately no more:
  *
  *   - item            consecutive lines → ONE <ul>, an <li> per line
  *   * item            the same (either marker, so both habits work)
- *   1. item           consecutive lines (any digits) → one <ol>
+ *   1. item           consecutive lines → one <ol>. A number only STARTS a list
+ *                     when it is 1, or when it carries on the list before it,
+ *                     so "14. august" stays a date instead of becoming item 1
  *   # text            a heading, one step up in size  (<h3> by default)
  *   ## text           a smaller heading                (<h4> by default)
  *   (blank line)      ends the block; each block of prose becomes its own <p>
@@ -89,7 +91,9 @@ export const CLASSES = {
 // A line is a list item only with a marker AND a space after it, so "*text*"
 // at the start of a line stays emphasis instead of turning into a bullet.
 const BULLET_LINE = /^[ \t]*[-*][ \t]+(.*)$/;
-const NUMBER_LINE = /^[ \t]*\d+\.[ \t]+(.*)$/;
+// The number is captured, because which number it is decides whether this is a
+// list at all. See the ordinal rule in appendBlocks.
+const NUMBER_LINE = /^[ \t]*(\d+)\.[ \t]+(.*)$/;
 
 // Two heading levels, and deliberately no more: the tenant is labelling parts
 // of one field, not building a document outline. The space after # is required
@@ -172,6 +176,9 @@ const appendBlocks = (doc, target, text, headingBase = DEFAULT_HEADING_BASE) => 
 	let list = null;      // the <ul>/<ol> currently accepting items
 	let listTag = '';
 	let prose = null;     // lines collecting into the paragraph currently open
+	// The number that would carry on the last ordered list, so a list broken by
+	// a blank line can resume instead of restarting at 1. Null until one exists.
+	let ordinalNext = null;
 
 	const closeParagraph = () => {
 		if (!prose) return;
@@ -210,6 +217,38 @@ const appendBlocks = (doc, target, text, headingBase = DEFAULT_HEADING_BASE) => 
 
 		const bullet = BULLET_LINE.exec(line);
 		const number = bullet ? null : NUMBER_LINE.exec(line);
+
+		// THE ORDINAL RULE. "14. august stenger vi kl 16." is a date, not a list,
+		// and Norwegian writes dates exactly like that — at the start of a line,
+		// in opening-hours text. Treating every "N. " as an item silently
+		// renumbered the 14th to the 1st, because an <ol> counts its own items
+		// and ignores the number that was typed.
+		//
+		// So a number only STARTS a list when it is the 1 a list starts at, or
+		// when it carries on the numbering of the list before it (a tenant who
+		// puts a blank line between items). Inside an open list any number
+		// continues it, which keeps the common "1. / 1. / 1." habit working.
+		// Anything else is prose, and the tenant sees their date intact.
+		let startsAt = 0;
+		if (number) {
+			const value = Number(number[1]);
+			const inOrderedList = list && listTag === 'ol';
+			if (!inOrderedList) {
+				if (value === 1) startsAt = 1;
+				else if (ordinalNext !== null && value === ordinalNext) startsAt = value;
+				else {
+					// A date, a price, a year — prose. Fall through to the
+					// paragraph collector below with the line exactly as typed.
+					list = null;
+					listTag = '';
+					if (!prose) prose = [];
+					prose.push(line.trim());
+					continue;
+				}
+			}
+			ordinalNext = (inOrderedList ? (ordinalNext ?? value) : startsAt) + 1;
+		}
+
 		if (bullet || number) {
 			closeParagraph();
 			const tag = bullet ? 'ul' : 'ol';
@@ -218,12 +257,15 @@ const appendBlocks = (doc, target, text, headingBase = DEFAULT_HEADING_BASE) => 
 			if (!list || listTag !== tag) {
 				list = doc.createElement(tag);
 				list.className = bullet ? CLASSES.bulletList : CLASSES.numberList;
+				// Only when the list resumes a sequence — an <ol> with no start
+				// attribute is the normal case and must stay that way.
+				if (startsAt > 1) list.setAttribute('start', String(startsAt));
 				listTag = tag;
 				target.appendChild(list);
 			}
 			const li = doc.createElement('li');
 			li.className = CLASSES.item;
-			appendInline(doc, li, (bullet ? bullet[1] : number[1]).trim());
+			appendInline(doc, li, (bullet ? bullet[1] : number[2]).trim());
 			list.appendChild(li);
 			continue;
 		}
