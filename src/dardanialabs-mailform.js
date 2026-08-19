@@ -161,7 +161,11 @@ class DardaniaLabsMailform extends HTMLElement {
   // Payload keys the form itself owns. A tenant field may not take one of these
   // names: silently overwriting the visitor's email address with a dropdown
   // value would be a far stranger bug than refusing the name.
-  static RESERVED = new Set(['name', 'mobile', 'email', 'subject', 'message', 'lang', 'company']);
+  static RESERVED = new Set(['name', 'first_name', 'last_name', 'mobile', 'email', 'subject', 'message', 'lang', 'company']);
+
+  // Payload key -> the input that shows its error. Only the keys whose two
+  // names differ need an entry.
+  static ERROR_FIELD = { first_name: 'firstName', last_name: 'lastName' };
 
   /**
    * The tenant's own fields as payload entries, keyed by the plain field name
@@ -343,7 +347,12 @@ class DardaniaLabsMailform extends HTMLElement {
         if (fieldErrors && Object.keys(fieldErrors).length) {
           let firstRejected = null;
           for (const [field, message] of Object.entries(fieldErrors)) {
-            const key = this.field(field) ? field : `x-${field}`;
+            // The server answers with the key it received — first_name — while
+            // the input is called firstName. Without this the lookup missed, fell
+            // through to x-first_name, missed again, and setError quietly did
+            // nothing: a refusal with no message anywhere and a dead button.
+            const named = DardaniaLabsMailform.ERROR_FIELD[field] || field;
+            const key = this.field(named) ? named : `x-${named}`;
             this.setError(key, String(message));
             if (!firstRejected) firstRejected = key;
           }

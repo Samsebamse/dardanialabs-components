@@ -49,8 +49,8 @@ export const CONFIG = {
 		// "Van Der Berg"). Both apostrophes are allowed: a phone keyboard emits
 		// the curly one and a laptop the straight one, and refusing D’Angelo
 		// because of which device typed it is not a rule anyone can act on.
-		firstName: '^\\p{L}[\\p{L}\\s\'’-]*\\p{L}$',
-		lastName: '^\\p{L}[\\p{L}\\s\'’-]*\\p{L}$',
+		firstName: '^\\p{L}[\\p{L}\\s\'’.-]*\\p{L}$',
+		lastName: '^\\p{L}[\\p{L}\\s\'’.-]*\\p{L}$',
 		// email: local ≥2, domain label ≥2, a dot, then a TLD of ≥2 letters
 		// (covers vg.no, .com, .io, and newer/longer TLDs like .info, .shop, .online).
 		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,}$',
@@ -95,8 +95,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'Kjo fushë është e detyrueshme.',
 			name: 'Emri duhet të ketë të paktën 2 shkronja.',
-			firstName: 'Emri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — vija dhe apostrofi lejohen brenda emrit.',
-			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — vija dhe apostrofi lejohen brenda emrit.',
+			firstName: 'Emri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — viza dhe apostrofi lejohen brenda emrit.',
+			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — viza dhe apostrofi lejohen brenda mbiemrit.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Mesazhi duhet të jetë 10 deri në 2000 karaktere.',
 			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',
