@@ -88,7 +88,6 @@ const STRINGS = {
 // number reached the API and came back as an unexplained 400.
 import { validate as validateValue } from './dardanialabs-validators.js';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 class DardaniaLabsMailform extends HTMLElement {
   static get observedAttributes() {
@@ -177,20 +176,31 @@ class DardaniaLabsMailform extends HTMLElement {
     return ['no', 'en', 'sq'].includes(this.lang) ? this.lang : 'no';
   }
 
+  // Payload field -> the key its rule is filed under in the shared validators.
+  // Every one of these is enforced by the server too, from a vendored copy of
+  // that same file, so anything this lets through the server would refuse. The
+  // form used to check only that name and message were non-empty while the
+  // server demanded letters-only and at least ten characters — so "Firma 24"
+  // and a four-word message passed here and came back as an unexplained 400.
+  static SHARED_RULE = { name: 'name', email: 'email', mobile: 'phone', message: 'message' };
+
   validate(name) {
     const t = this.t;
     const value = (this.field(name)?.value || '').trim();
-    switch (name) {
-      case 'name': return this.setError('name', value ? '' : t.nameErr);
-      case 'email': return this.setError('email', EMAIL_PATTERN.test(value) ? '' : t.emailErr);
-      case 'code': return this.setError('code', this.codePattern.test(value) ? '' : t.codeErr);
-      case 'message': return this.setError('message', value ? '' : t.messageErr);
-      // The phone is optional, and the shared rule says so itself — its pattern
-      // matches the empty string. So an untouched field is valid and a filled-in
-      // one must be a real number; "optional" never meant "unchecked".
-      case 'mobile': return this.setError('mobile', validateValue(value, 'phone', this.ruleLang) || '');
-      default: return true;
+
+    // The code is the one field the shared rules do not own: its pattern is
+    // configured per tenant on the element itself.
+    if (name === 'code') return this.setError('code', this.codePattern.test(value) ? '' : t.codeErr);
+
+    const rule = DardaniaLabsMailform.SHARED_RULE[name];
+    if (!rule) return true;
+    // An empty required field gets the form's own wording — the shared rule
+    // would answer with its format message, which is not what "you left this
+    // blank" should say. mobile is exempt: blank IS valid there.
+    if (!value && name !== 'mobile') {
+      return this.setError(name, t[`${name}Err`] || t.requiredErr);
     }
+    return this.setError(name, validateValue(value, rule, this.ruleLang) || '');
   }
 
   /**
@@ -512,13 +522,23 @@ class DardaniaLabsMailform extends HTMLElement {
     // included, which is the one that used to reach the server unchecked.
     ['name', 'email', 'mobile', 'message'].forEach((name) => this.watchField(name));
 
+    // Tenant custom fields follow the SAME rule as the built-in ones: checked as
+    // they change, silent while blank, re-checked on the way out. They used to
+    // clear unconditionally on blur, so a required field left empty went quiet
+    // the moment you tabbed past it — and extras are folded into the message
+    // body, so the server never catches them either.
     this.extraFields.forEach((f) => {
       const key = `x-${f.name}`;
       const el = this.field(key);
-      const revalidate = () => { if (this.hasError(key)) this.setError(key, (el.value || '').trim() ? '' : this.t.requiredErr); };
-      el?.addEventListener('input', revalidate);
-      el?.addEventListener('change', revalidate);
-      el?.addEventListener('blur', () => this.setError(key, ''));
+      if (!el) return;
+      const check = () => {
+        const filled = Boolean((el.value || '').trim());
+        if (!filled && !f.required) return this.setError(key, '');
+        this.setError(key, filled ? '' : this.t.requiredErr);
+      };
+      el.addEventListener('input', check);
+      el.addEventListener('change', check);
+      el.addEventListener('blur', check);
     });
 
     if (this.requireCode) {
@@ -538,7 +558,10 @@ class DardaniaLabsMailform extends HTMLElement {
       });
       code.addEventListener('blur', () => {
         tip.classList.remove('show');
-        this.setError('code', '');
+        // Re-check rather than clear, like every other field: a half-typed code
+        // left behind should say so instead of going quiet on the way out.
+        if ((code.value || '').trim() === '') this.setError('code', '');
+        else this.validate('code');
       });
     }
   }
