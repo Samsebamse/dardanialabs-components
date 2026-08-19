@@ -152,6 +152,30 @@ class DardaniaLabsMailform extends HTMLElement {
 
   field(name) { return this.shadowRoot.querySelector(`[name="${name}"]`); }
 
+  // Payload keys the form itself owns. A tenant field may not take one of these
+  // names: silently overwriting the visitor's email address with a dropdown
+  // value would be a far stranger bug than refusing the name.
+  static RESERVED = new Set(['name', 'mobile', 'email', 'subject', 'message', 'lang', 'company']);
+
+  /**
+   * The tenant's own fields as payload entries, keyed by the plain field name
+   * the CMS stores in tenant_validators.field_key — `x-` is only how the input
+   * is named inside the shadow DOM, and is not part of the contract.
+   *
+   * The code is included under its own key for the same reason: a tenant rule
+   * on `code` has always been readable by the CMS but was never sent, so it
+   * matched against nothing.
+   */
+  tenantFieldValues() {
+    const values = {};
+    if (this.requireCode) values.code = (this.field('code')?.value || '').trim();
+    for (const f of this.extraFields) {
+      if (DardaniaLabsMailform.RESERVED.has(f.name)) continue;
+      values[f.name] = (this.field(`x-${f.name}`)?.value || '').trim();
+    }
+    return values;
+  }
+
   setError(name, message) {
     const input = this.field(name);
     const error = this.shadowRoot.querySelector(`.error[data-for="${name}"]`);
@@ -278,6 +302,14 @@ class DardaniaLabsMailform extends HTMLElement {
         message,
         lang: this.lang,
         company: this.field('company')?.value || '',
+        // The tenant's own fields, sent AS FIELDS and not only folded into the
+        // message body above. tenant_validators is the override layer — the
+        // server looks each rule up by field_key and reads data[field_key] — so
+        // while these travelled only inside the message text, a tenant's
+        // "required" rule read undefined and refused every submit, and a
+        // "pattern" rule quietly passed anything at all. They stay in the
+        // message too: that is what a human reads in the enquiry.
+        ...this.tenantFieldValues(),
       },
     };
 
