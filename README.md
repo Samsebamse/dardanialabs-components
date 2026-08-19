@@ -11,15 +11,31 @@ elements — no framework, no build step, one `<script>` tag per component.
 
 ## Loading
 
-Always pin a **version** on live sites — published versions are immutable:
+Always pin a **tag** on live sites. Never `@main`: purging that path does not
+re-resolve the branch to a commit, so the CDN keeps serving an older build —
+measured 18 Aug 2026, `@main` returned the previous file after a publish and a
+successful purge on every provider, and went on doing so for days. A `?v=`
+query string does not help either; it changes the browser's cache key, never
+jsDelivr's. Those `?v=` numbers still in the fleet are cache-buster counters,
+not versions.
+
+**Two kinds of component, and the script tag differs.** Getting this wrong
+fails silently: a module loaded as a classic script throws on its first
+`import` and the element is simply never defined, so the form does not appear
+at all.
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.2/src/dardanialabs-footer.js"></script>
-<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.2/src/dardanialabs-photoslider.js"></script>
-<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@1.0.2/src/dardanialabs-mailform.js"></script>
+<!-- Classic scripts: footer, photoslider, spinner, datepicker, timepicker -->
+<script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.17.0/src/dardanialabs-footer.js"></script>
+
+<!-- Modules — they import the shared rules, so type="module" is required -->
+<script type="module" src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.17.0/src/dardanialabs-mailform.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.17.0/src/dardanialabs-richtext.js"></script>
 ```
 
-Upgrading a site = bumping the version in that one line.
+Upgrading a site = bumping the tag in that one line. `test/smoke.mjs` loads each
+component the way a site does — eval for classic, import for module — so the
+mismatch above is caught before it ships.
 
 In Vue projects, register the prefix as custom elements (vite.config):
 
@@ -148,9 +164,64 @@ shadow then hugs the image instead of boxing in the dots.
 ```
 
 Submits `POST {api}/mail` with
-`{ data: { name, mobile, email, subject, message, lang } }`. The server
-resolves the tenant from the request Origin, so the same embed works on any
-site — the tenant needs `mail_form` enabled and a `contact_email` configured.
+`{ data: { name, mobile, email, subject, message, lang, company, …tenant fields } }`.
+The server resolves the tenant from the request Origin, so the same embed works
+on any site — the tenant needs `mail_form` enabled and a `contact_email`
+configured.
+
+### Validation: one recipe, both sides
+
+```
+        dardanialabs-validators.js          ← common rules live here, once
+         name · email · phone · message
+                    │
+        ┌───────────┴────────────┐
+        │                        │
+   the form imports it      the server vendors a copy
+   gates before sending     gates again, authoritative
+        │                        │
+        └───────────┬────────────┘
+                    │
+        tenant_validators (DB)   ← the per-tenant override layer
+        field_key → rule/pattern/messages
+                    │
+        server reads data[field_key]
+```
+
+**Common rules are shared, not re-implemented.** The form imports
+`dardanialabs-validators.js` — the same file the server keeps a vendored copy
+of for its own gate — so a field that passes in the browser passes on the
+server. When the form carried its own weaker checks instead, a nine-digit
+Norwegian phone number and a name like `Firma 24` reached the API and came back
+as an unexplained 400.
+
+**Validation is eager.** Every keystroke checks the field; a blank field never
+shows a message, because someone who has not finished typing has not made a
+mistake yet; leaving a field re-checks it. An invalid form sends nothing at
+all — the server is never asked to refuse what the browser already knows is
+wrong.
+
+**Tenant rules are the override layer, and they need the field.** Custom fields
+and the code are sent under their own names *as well as* appearing in the
+message body, because `tenant_validators` is looked up by `field_key` and read
+from `data[field_key]`. While they travelled only inside the message text, a
+tenant's `required` rule read `undefined` and refused every submission, and a
+`pattern` rule passed anything at all.
+
+Two rules worth knowing:
+
+- A tenant field may **not** take one of the form's own payload keys (`name`,
+  `mobile`, `email`, `subject`, `message`, `lang`, `company`). It is ignored
+  rather than allowed to overwrite the visitor's own address.
+- Server-side, a rule for a field the form does **not send** is skipped and
+  logged, not failed. An absent field means a reconfigured form left a stale
+  rule behind; an *empty* field means the visitor left it blank, which
+  `required` should still refuse.
+
+When the server does refuse (its rules are authoritative, and tenant rules only
+exist there), the 400 body names each field — `{ ok: false, errors: { field:
+message } }` — and the form paints those onto the fields themselves instead of
+showing one generic banner.
 
 - `api`: API base, default `https://api.dardanialabs.io/v1/public`.
 - `lang`: `no` | `en` | `sq` (built-in strings).
@@ -163,10 +234,13 @@ site — the tenant needs `mail_form` enabled and a `contact_email` configured.
   `fields='[{"name":"dates","label":{"no":"Ønsket tid","en":"Preferred dates"},"type":"text","required":true}]'`.
   Types: `text`, `tel`, `select`, `textarea`. `label`/`placeholder`/`options`
   accept plain strings or `{ no, en, sq }` objects resolved by `lang`.
-  Values are folded into the message body as "Label: value" lines;
-  `required` fields validate like the built-in ones. Exception: an extra
-  field named `subject` becomes the mail's actual subject line (useful for
-  a localized subject select).
+  Values are sent under their own names in `data` **and** folded into the
+  message body as "Label: value" lines — the first is what `tenant_validators`
+  gates on, the second is what a human reads in the enquiry. `required` fields
+  validate like the built-in ones. Exception: an extra field named `subject`
+  becomes the mail's actual subject line (useful for a localized subject
+  select). Names that collide with the form's own payload keys are ignored —
+  see *Validation* above.
 - Full custom validation: per-field messages, highlight + shake, focus jumps
   to the first invalid field.
 - Events: `dardanialabs-mailform:sent`, `dardanialabs-mailform:error` (each
