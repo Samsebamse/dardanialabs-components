@@ -63,8 +63,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'Dette feltet er påkrevd.',
 			name: 'Navnet må ha minst 2 bokstaver.',
-			firstName: 'Fornavnet må ha minst 2 bokstaver.',
-			lastName: 'Etternavnet må ha minst 2 bokstaver.',
+			firstName: 'Fornavnet må ha minst 2 bokstaver, og kan ikke slutte med tegn som . , ! ? @ ( ) [ ] " — bindestrek og apostrof er greit inni navnet.',
+			lastName: 'Etternavnet må ha minst 2 bokstaver, og kan ikke slutte med tegn som . , ! ? @ ( ) [ ] " — bindestrek og apostrof er greit inni navnet.',
 			email: 'Skriv inn en gyldig e-postadresse.',
 			message: 'Meldingen må være mellom 10 og 2000 tegn.',
 			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. +47 900 00 000).',
@@ -79,8 +79,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'This field is required.',
 			name: 'Your name must be at least 2 letters.',
-			firstName: 'First name must be at least 2 letters.',
-			lastName: 'Last name must be at least 2 letters.',
+			firstName: 'First name must be at least 2 letters, and cannot end in a character such as . , ! ? @ ( ) [ ] " — hyphens and apostrophes are fine inside the name.',
+			lastName: 'Last name must be at least 2 letters, and cannot end in a character such as . , ! ? @ ( ) [ ] " — hyphens and apostrophes are fine inside the name.',
 			email: 'Please enter a valid email address.',
 			message: 'Message must be between 10 and 2000 characters.',
 			phone: 'A valid phone number (e.g. +47 900 00 000).',
@@ -95,8 +95,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'Kjo fushë është e detyrueshme.',
 			name: 'Emri duhet të ketë të paktën 2 shkronja.',
-			firstName: 'Emri duhet të ketë të paktën 2 shkronja.',
-			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja.',
+			firstName: 'Emri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — vija dhe apostrofi lejohen brenda emrit.',
+			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — vija dhe apostrofi lejohen brenda emrit.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Mesazhi duhet të jetë 10 deri në 2000 karaktere.',
 			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',
