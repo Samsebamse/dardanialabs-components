@@ -37,7 +37,20 @@ export const CONFIG = {
 	// ── SHARED ── common regexes, defined once, used by every language.
 	SHARED: {
 		// name: at least 2 letters (so "Jo" is valid); letters + spaces/'/-/. between.
-		name: '^\\p{L}[\\p{L}\\s\'.-]*\\p{L}$',
+		// Kept for forms that still collect one name field, and for the composed
+		// "First Last" the server stores.
+		name: '^\\p{L}[\\p{L}\\s\'’.-]*\\p{L}$',
+
+		// firstName / lastName: the same shape as `name` but for ONE part, so a
+		// form that asks separately can say which half is wrong instead of
+		// rejecting the whole line. Both must START and END with a letter — a
+		// name is not "Ø." or "-Erik" — with at least two letters, and may carry
+		// spaces, hyphens and apostrophes between them ("Bjørn-Erik", "O'Brien",
+		// "Van Der Berg"). Both apostrophes are allowed: a phone keyboard emits
+		// the curly one and a laptop the straight one, and refusing D’Angelo
+		// because of which device typed it is not a rule anyone can act on.
+		firstName: '^\\p{L}[\\p{L}\\s\'’-]*\\p{L}$',
+		lastName: '^\\p{L}[\\p{L}\\s\'’-]*\\p{L}$',
 		// email: local ≥2, domain label ≥2, a dot, then a TLD of ≥2 letters
 		// (covers vg.no, .com, .io, and newer/longer TLDs like .info, .shop, .online).
 		email: '^[^\\s@]{2,}@[^\\s@]{2,}\\.[A-Za-z]{2,}$',
@@ -50,6 +63,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'Dette feltet er påkrevd.',
 			name: 'Navnet må ha minst 2 bokstaver.',
+			firstName: 'Fornavnet må ha minst 2 bokstaver.',
+			lastName: 'Etternavnet må ha minst 2 bokstaver.',
 			email: 'Skriv inn en gyldig e-postadresse.',
 			message: 'Meldingen må være mellom 10 og 2000 tegn.',
 			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. +47 900 00 000).',
@@ -64,6 +79,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'This field is required.',
 			name: 'Your name must be at least 2 letters.',
+			firstName: 'First name must be at least 2 letters.',
+			lastName: 'Last name must be at least 2 letters.',
 			email: 'Please enter a valid email address.',
 			message: 'Message must be between 10 and 2000 characters.',
 			phone: 'A valid phone number (e.g. +47 900 00 000).',
@@ -78,6 +95,8 @@ export const CONFIG = {
 		HINT: {
 			required: 'Kjo fushë është e detyrueshme.',
 			name: 'Emri duhet të ketë të paktën 2 shkronja.',
+			firstName: 'Emri duhet të ketë të paktën 2 shkronja.',
+			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Mesazhi duhet të jetë 10 deri në 2000 karaktere.',
 			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',

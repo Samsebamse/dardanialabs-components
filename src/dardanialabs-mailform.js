@@ -42,6 +42,8 @@
 const STRINGS = {
   no: {
     name: 'Navn', namePh: 'Ditt navn', nameErr: 'Skriv inn navnet ditt.',
+    firstName: 'Fornavn', firstNamePh: 'Ditt fornavn',
+    lastName: 'Etternavn', lastNamePh: 'Ditt etternavn',
     email: 'E-post', emailPh: 'navn@epost.no', emailErr: 'Skriv inn en gyldig e-postadresse.',
     mobile: 'Telefon (valgfritt)', mobilePh: 'f.eks. 900 00 000',
     subject: 'Emne', subjectPh: 'Hva gjelder det?', subjectDefault: 'Melding fra nettsiden',
@@ -55,6 +57,8 @@ const STRINGS = {
   },
   en: {
     name: 'Name', namePh: 'Your name', nameErr: 'Please enter your name.',
+    firstName: 'First name', firstNamePh: 'Your first name',
+    lastName: 'Last name', lastNamePh: 'Your last name',
     email: 'Email', emailPh: 'name@email.com', emailErr: 'Please enter a valid email address.',
     mobile: 'Phone (optional)', mobilePh: 'e.g. +47 900 00 000',
     subject: 'Subject', subjectPh: 'What is it about?', subjectDefault: 'Message from the website',
@@ -68,6 +72,8 @@ const STRINGS = {
   },
   sq: {
     name: 'Emri', namePh: 'Emri juaj', nameErr: 'Ju lutem shkruani emrin tuaj.',
+    firstName: 'Emri', firstNamePh: 'Emri juaj',
+    lastName: 'Mbiemri', lastNamePh: 'Mbiemri juaj',
     email: 'Email', emailPh: 'emri@email.com', emailErr: 'Ju lutem shkruani një adresë email të vlefshme.',
     mobile: 'Telefoni (opsional)', mobilePh: 'p.sh. +383 44 000 000',
     subject: 'Subjekti', subjectPh: 'Për çfarë bëhet fjalë?', subjectDefault: 'Mesazh nga faqja',
@@ -206,7 +212,7 @@ class DardaniaLabsMailform extends HTMLElement {
   // form used to check only that name and message were non-empty while the
   // server demanded letters-only and at least ten characters — so "Firma 24"
   // and a four-word message passed here and came back as an unexplained 400.
-  static SHARED_RULE = { name: 'name', email: 'email', mobile: 'phone', message: 'message' };
+  static SHARED_RULE = { firstName: 'firstName', lastName: 'lastName', email: 'email', mobile: 'phone', message: 'message' };
 
   validate(name) {
     const t = this.t;
@@ -253,7 +259,7 @@ class DardaniaLabsMailform extends HTMLElement {
     if (this.busy) return;
     // mobile is in the list although it is optional: the rule accepts an empty
     // value, so including it costs nothing and catches a filled-in bad number.
-    const required = ['name', 'email', 'mobile', ...(this.requireCode ? ['code'] : []), 'message'];
+    const required = ['firstName', 'lastName', 'email', 'mobile', ...(this.requireCode ? ['code'] : []), 'message'];
     let firstInvalid = null;
     for (const name of required) {
       if (!this.validate(name) && !firstInvalid) firstInvalid = name;
@@ -293,7 +299,13 @@ class DardaniaLabsMailform extends HTMLElement {
     const message = (header ? `${header}\n\n` : '') + this.field('message').value.trim();
     const payload = {
       data: {
-        name: this.field('name').value.trim(),
+        // Both halves, plus the composed line. The parts are what validates
+        // and what anything downstream should read; `name` stays so the mail
+        // templates, the stored enquiry and every existing consumer keep
+        // working unchanged during and after the rollout.
+        first_name: this.field('firstName').value.trim(),
+        last_name: this.field('lastName').value.trim(),
+        name: `${this.field('firstName').value.trim()} ${this.field('lastName').value.trim()}`.trim(),
         mobile: this.showMobile ? (this.field('mobile')?.value.trim() || '') : '',
         email: this.field('email').value.trim(),
         subject: (this.showSubject && this.field('subject')?.value.trim())
@@ -479,10 +491,20 @@ class DardaniaLabsMailform extends HTMLElement {
         <div style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;overflow:hidden;" aria-hidden="true">
           <input name="company" type="text" tabindex="-1" autocomplete="off" />
         </div>
-        <div class="field">
-          <label>${t.name}</label>
-          <input name="name" type="text" placeholder="${t.namePh}" />
-          <span class="error" data-for="name"></span>
+        <!-- Two fields, not one. Asking separately is the only way to say WHICH
+             half is wrong, and it matches the booking form, which has always
+             needed the parts apart because a booking name must match a passport. -->
+        <div class="row">
+          <div class="field">
+            <label>${t.firstName}</label>
+            <input name="firstName" type="text" autocomplete="given-name" placeholder="${t.firstNamePh}" />
+            <span class="error" data-for="firstName"></span>
+          </div>
+          <div class="field">
+            <label>${t.lastName}</label>
+            <input name="lastName" type="text" autocomplete="family-name" placeholder="${t.lastNamePh}" />
+            <span class="error" data-for="lastName"></span>
+          </div>
         </div>
         <div class="${this.showMobile ? 'row' : ''}">
           <div class="field">
@@ -552,7 +574,7 @@ class DardaniaLabsMailform extends HTMLElement {
 
     // Every field the shared rules cover, checked as it is typed — mobile
     // included, which is the one that used to reach the server unchecked.
-    ['name', 'email', 'mobile', 'message'].forEach((name) => this.watchField(name));
+    ['firstName', 'lastName', 'email', 'mobile', 'message'].forEach((name) => this.watchField(name));
 
     // Tenant custom fields follow the SAME rule as the built-in ones: checked as
     // they change, silent while blank, re-checked on the way out. They used to
