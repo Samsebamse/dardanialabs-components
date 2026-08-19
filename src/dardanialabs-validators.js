@@ -67,7 +67,7 @@ export const CONFIG = {
 			lastName: 'Etternavnet må ha minst 2 bokstaver, og kan ikke slutte med tegn som . , ! ? @ ( ) [ ] " — bindestrek og apostrof er greit inni navnet.',
 			email: 'Skriv inn en gyldig e-postadresse.',
 			message: 'Meldingen må være mellom 10 og 2000 tegn.',
-			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. +47 900 00 000).',
+			phone: 'Gyldig norsk telefonnummer – 8 siffer (f.eks. 900 00 000).',
 		},
 		REGEX: {
 			phone: '^(?:(?:\\+47[\\s]?)?\\d{8})?$', // Norway: +47 + 8 digits (empty ok → optional)
@@ -83,7 +83,7 @@ export const CONFIG = {
 			lastName: 'Last name must be at least 2 letters, and cannot end in a character such as . , ! ? @ ( ) [ ] " — hyphens and apostrophes are fine inside the name.',
 			email: 'Please enter a valid email address.',
 			message: 'Message must be between 10 and 2000 characters.',
-			phone: 'A valid phone number (e.g. +47 900 00 000).',
+			phone: 'A valid phone number (e.g. 900 00 000).',
 		},
 		REGEX: {
 			phone: '^(?:\\+?\\d{7,15})?$', // generic international
@@ -99,7 +99,7 @@ export const CONFIG = {
 			lastName: 'Mbiemri duhet të ketë të paktën 2 shkronja dhe nuk mund të mbarojë me shenja si . , ! ? @ ( ) [ ] " — viza dhe apostrofi lejohen brenda mbiemrit.',
 			email: 'Ju lutem shkruani një adresë email të vlefshme.',
 			message: 'Mesazhi duhet të jetë 10 deri në 2000 karaktere.',
-			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. +383 44 000 000).',
+			phone: 'Numër telefoni valid – 8–9 shifra (p.sh. 44 000 000).',
 		},
 		REGEX: {
 			phone: '^(?:(?:\\+383|\\+355|0)?\\d{8,9})?$', // Kosovo/Albania: 8–9 digits
