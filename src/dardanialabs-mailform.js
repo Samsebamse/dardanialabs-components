@@ -81,6 +81,13 @@ const STRINGS = {
   },
 };
 
+// The SAME rules the server gates on. dardanialabs-validators.js is the single
+// source; the server keeps a vendored copy of this exact file for its own gate,
+// so a field that passes here passes there. Before this, the form carried its
+// own email regex and no phone rule at all, which is how a nine-digit Norwegian
+// number reached the API and came back as an unexplained 400.
+import { validate as validateValue } from './dardanialabs-validators.js';
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 class DardaniaLabsMailform extends HTMLElement {
@@ -164,6 +171,12 @@ class DardaniaLabsMailform extends HTMLElement {
     return Boolean(error && error.textContent);
   }
 
+  // The language the shared rules are keyed by. They carry no/en/sq; anything
+  // else falls back rather than validating against rules that do not exist.
+  get ruleLang() {
+    return ['no', 'en', 'sq'].includes(this.lang) ? this.lang : 'no';
+  }
+
   validate(name) {
     const t = this.t;
     const value = (this.field(name)?.value || '').trim();
@@ -172,13 +185,41 @@ class DardaniaLabsMailform extends HTMLElement {
       case 'email': return this.setError('email', EMAIL_PATTERN.test(value) ? '' : t.emailErr);
       case 'code': return this.setError('code', this.codePattern.test(value) ? '' : t.codeErr);
       case 'message': return this.setError('message', value ? '' : t.messageErr);
+      // The phone is optional, and the shared rule says so itself — its pattern
+      // matches the empty string. So an untouched field is valid and a filled-in
+      // one must be a real number; "optional" never meant "unchecked".
+      case 'mobile': return this.setError('mobile', validateValue(value, 'phone', this.ruleLang) || '');
       default: return true;
     }
   }
 
+  /**
+   * Live validation, the eager version.
+   *
+   * A field is checked on every keystroke, but a BLANK field never shows a
+   * message: someone who has not finished typing has not made a mistake yet.
+   * Leaving a field re-checks it, so tabbing past a half-finished number does
+   * report. Together that means the visitor is told the moment the value is
+   * wrong and never before, and an invalid form cannot reach the API at all.
+   */
+  watchField(name) {
+    const el = this.field(name);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      if ((el.value || '').trim() === '') this.setError(name, '');
+      else this.validate(name);
+    });
+    el.addEventListener('blur', () => {
+      if ((el.value || '').trim() === '') this.setError(name, '');
+      else this.validate(name);
+    });
+  }
+
   async submit() {
     if (this.busy) return;
-    const required = ['name', 'email', ...(this.requireCode ? ['code'] : []), 'message'];
+    // mobile is in the list although it is optional: the rule accepts an empty
+    // value, so including it costs nothing and catches a filled-in bad number.
+    const required = ['name', 'email', 'mobile', ...(this.requireCode ? ['code'] : []), 'message'];
     let firstInvalid = null;
     for (const name of required) {
       if (!this.validate(name) && !firstInvalid) firstInvalid = name;
@@ -236,7 +277,29 @@ class DardaniaLabsMailform extends HTMLElement {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error(`Mail request failed (${response.status})`);
+      // A 400 from the mail gate is not a mystery: the body names each field it
+      // refused and why, in the visitor's language. Throwing that away and
+      // showing one red box was how a nine-digit phone number became "something
+      // went wrong". Client validation should mean this never fires — but the
+      // server has rules of its own (per-tenant validators), so when it does
+      // refuse, the visitor is shown exactly which field and told nothing vague.
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const fieldErrors = body && typeof body.errors === 'object' ? body.errors : null;
+        if (fieldErrors && Object.keys(fieldErrors).length) {
+          let firstRejected = null;
+          for (const [field, message] of Object.entries(fieldErrors)) {
+            const key = this.field(field) ? field : `x-${field}`;
+            this.setError(key, String(message));
+            if (!firstRejected) firstRejected = key;
+          }
+          const el = this.field(firstRejected);
+          el?.focus?.();
+          el?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+          return; // a refused field is not a failed send: no red banner
+        }
+        throw new Error(`Mail request failed (${response.status})`);
+      }
       this.shadowRoot.querySelector('form').style.display = 'none';
       this.shadowRoot.querySelector('.form-sent').style.display = 'block';
       this.dispatchEvent(new CustomEvent('dardanialabs-mailform:sent', { bubbles: true, composed: true }));
@@ -389,6 +452,7 @@ class DardaniaLabsMailform extends HTMLElement {
             <div class="field">
               <label>${t.mobile}</label>
               <input name="mobile" type="tel" placeholder="${t.mobilePh}" />
+              <span class="error" data-for="mobile"></span>
             </div>
           ` : ''}
         </div>
@@ -444,15 +508,9 @@ class DardaniaLabsMailform extends HTMLElement {
     const root = this.shadowRoot;
     root.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
 
-    // UX: an error appears only on submit (or persists from a prior submit).
-    // WHILE it's showing, typing re-validates live and the message disappears the
-    // instant the value becomes valid. Leaving the field (blur) also clears it.
-    // A pristine field is never nagged just for being focused/tabbed through.
-    ['name', 'email', 'message'].forEach((name) => {
-      const el = this.field(name);
-      el?.addEventListener('input', () => { if (this.hasError(name)) this.validate(name); });
-      el?.addEventListener('blur', () => this.setError(name, ''));
-    });
+    // Every field the shared rules cover, checked as it is typed — mobile
+    // included, which is the one that used to reach the server unchecked.
+    ['name', 'email', 'mobile', 'message'].forEach((name) => this.watchField(name));
 
     this.extraFields.forEach((f) => {
       const key = `x-${f.name}`;

@@ -13,7 +13,7 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -22,7 +22,10 @@ const srcDir = path.join(root, 'src');
 const COMPONENTS = [
   { file: 'dardanialabs-footer.js', primary: 'dardanialabs-footer', legacy: 'rtek-footer', cssVars: false },
   { file: 'dardanialabs-photoslider.js', primary: 'dardanialabs-photoslider', legacy: 'rtek-photoslider', cssVars: true },
-  { file: 'dardanialabs-mailform.js', primary: 'dardanialabs-mailform', legacy: 'rtek-mailform', cssVars: true },
+  // A module, not a classic script: it imports the shared validators so the form
+  // gates on exactly the rules the server gates on. Every site embedding it must
+  // therefore use <script type="module">.
+  { file: 'dardanialabs-mailform.js', primary: 'dardanialabs-mailform', legacy: 'rtek-mailform', cssVars: true, module: true },
   // Born after the rename — no legacy tag, and its vars need no --rtek fallback.
   { file: 'dardanialabs-spinner.js', primary: 'dardanialabs-spinner', legacy: null, cssVars: false },
   { file: 'dardanialabs-datepicker.js', primary: 'dardanialabs-datepicker', legacy: null, cssVars: false },
@@ -42,11 +45,28 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', {
 });
 const { window } = dom;
 
+// Classic components are eval'd into the jsdom window, exactly as a <script src>
+// runs them. A module component cannot be eval'd — it is imported, with the
+// jsdom globals already in place so customElements.define lands on the same
+// registry the checks below read. Which of the two a component is matters: it
+// is the difference between the script tag a site must write and a form that
+// silently never appears.
 const sources = new Map();
 for (const c of COMPONENTS) {
   const code = await readFile(path.join(srcDir, c.file), 'utf8');
   sources.set(c.file, code);
-  window.eval(code);
+  if (!c.module) window.eval(code);
+}
+
+const moduleComponents = COMPONENTS.filter((c) => c.module);
+if (moduleComponents.length) {
+  globalThis.window = window;
+  globalThis.document = window.document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.customElements = window.customElements;
+  for (const c of moduleComponents) {
+    await import(pathToFileURL(path.join(srcDir, c.file)).href);
+  }
 }
 
 let failures = 0;
