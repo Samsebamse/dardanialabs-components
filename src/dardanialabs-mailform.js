@@ -259,6 +259,31 @@ class DardaniaLabsMailform extends HTMLElement {
     });
   }
 
+  // Long enough to be read without hurrying, short enough that someone who
+  // meant to send a second message is not left waiting on a page they cannot
+  // use. Cleared on disconnect so a torn-down element cannot fire into nothing.
+  restoreAfterSent() {
+    clearTimeout(this._sentTimer);
+    this._sentTimer = setTimeout(() => {
+      const root = this.shadowRoot;
+      if (!root) return;
+      const form = root.querySelector('form');
+      const sent = root.querySelector('.form-sent');
+      if (!form || !sent) return;
+      form.reset();
+      // reset() restores the values, not the verdicts — a message left over
+      // from the previous send would greet the next one.
+      root.querySelectorAll('.error').forEach((el) => { el.textContent = ''; el.style.display = 'none'; });
+      root.querySelectorAll('.invalid').forEach((el) => el.classList.remove('invalid'));
+      sent.style.display = 'none';
+      form.style.display = '';
+    }, 7000);
+  }
+
+  disconnectedCallback() {
+    clearTimeout(this._sentTimer);
+  }
+
   async submit() {
     if (this.busy) return;
     // mobile is in the list although it is optional: the rule accepts an empty
@@ -365,6 +390,11 @@ class DardaniaLabsMailform extends HTMLElement {
       }
       this.shadowRoot.querySelector('form').style.display = 'none';
       this.shadowRoot.querySelector('.form-sent').style.display = 'block';
+      // The confirmation used to be the last thing that ever happened here: the
+      // form was hidden and stayed hidden, so a visitor who thought of one more
+      // question had to reload the page to ask it. It steps aside on its own
+      // and hands back an empty form.
+      this.restoreAfterSent();
       this.dispatchEvent(new CustomEvent('dardanialabs-mailform:sent', { bubbles: true, composed: true }));
       // legacy alias retained during dardanialabs migration
       this.dispatchEvent(new CustomEvent('rtek-mailform:sent', { bubbles: true, composed: true }));
@@ -473,8 +503,29 @@ class DardaniaLabsMailform extends HTMLElement {
           text-align: center;
           box-shadow: 0 10px 34px rgba(0, 0, 0, 0.08);
         }
-        .form-sent h3 { margin: 0 0 0.5rem; color: var(--dardanialabs-success, var(--rtek-success, #3d5142)); }
-        .form-sent p { margin: 0; }
+        /* font-style is stated rather than inherited: a shadow root still takes
+           it from the host, and on a page whose section is set in italics the
+           confirmation arrived leaning over like an afterthought. */
+        .form-sent h3 {
+          margin: 0 0 0.5rem;
+          font-style: normal;
+          color: var(--dardanialabs-text, var(--rtek-text, #2c2c2c));
+        }
+        .form-sent p {
+          margin: 0;
+          font-style: normal;
+          color: var(--dardanialabs-text, var(--rtek-text, #2c2c2c));
+          opacity: 0.75;
+        }
+        /* The success colour marks the tick, not the sentence. A whole heading
+           in it reads as a status badge rather than as the site talking. */
+        .form-sent .sent-mark {
+          display: block;
+          width: 44px;
+          height: 44px;
+          margin: 0 auto 1rem;
+          color: var(--dardanialabs-success, var(--rtek-success, #3d5142));
+        }
         .form-failed {
           display: none;
           color: var(--dardanialabs-error, var(--rtek-error, #b3402a));
@@ -573,6 +624,10 @@ class DardaniaLabsMailform extends HTMLElement {
       </form>
 
       <div class="form-sent">
+        <svg class="sent-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="8 12.5 11 15.5 16 9.5" />
+        </svg>
         <h3>${t.sentTitle}</h3>
         <p>${t.sentBody}</p>
       </div>
