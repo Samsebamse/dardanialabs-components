@@ -50,10 +50,35 @@ class DardaniaLabsPhotoslider extends HTMLElement {
     this.startAutoplay();
   }
 
+  /**
+   * The slides, as plain URL strings.
+   *
+   * An entry may be a bare URL, or an object carrying a destination with it:
+   *
+   *     ["/img/a.jpg", { "url": "/img/b.jpg", "href": "/sale/desk" }]
+   *
+   * Both shapes are accepted so no tenant has to change anything: every site
+   * passing bare strings behaves exactly as before. The link travels WITH its
+   * image rather than in a second array beside it, which is the whole point —
+   * two lists that must stay index-aligned drift the first time somebody
+   * reorders or deletes a slide, and then the picture of one product quietly
+   * links to another, with nothing to notice it has happened.
+   */
   get images() {
+    return this.slides.map((slide) => slide.url);
+  }
+
+  /** The same list, links intact. */
+  get slides() {
     try {
       const parsed = JSON.parse(this.getAttribute('images') || '[]');
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((entry) => (typeof entry === 'string' ? { url: entry, href: '' } : {
+          url: entry?.url || '',
+          href: entry?.href || '',
+        }))
+        .filter((slide) => slide.url);
     } catch {
       return [];
     }
@@ -233,6 +258,20 @@ class DardaniaLabsPhotoslider extends HTMLElement {
           align-items: center;
           justify-content: center;
         }
+        /* Fills its slide so the whole picture is the target, and inherits the
+           image's own sizing rather than imposing a link's. */
+        .slide-link {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+        .slide-link:focus-visible {
+          outline: 3px solid var(--dardanialabs-accent, var(--rtek-accent, #c4622d));
+          outline-offset: -3px;
+        }
         .slide img {
           width: 100%;
           height: 100%;
@@ -311,9 +350,18 @@ class DardaniaLabsPhotoslider extends HTMLElement {
       </style>
       <div class="frame">
         <div class="track" style="transform: translateX(-${this.index * 100}%)">
-          ${images.map((src, i) => `
-            <div class="slide"><img src="${src}" alt="${alt} ${i + 1}" loading="lazy" /></div>
-          `).join('')}
+          ${this.slides.map((slide, i) => {
+            const img = `<img src="${slide.url}" alt="${alt} ${i + 1}" loading="lazy" />`;
+            // A real anchor, not a click handler. The crawler that walks these
+            // sites reads hrefs — a slide navigated by JavaScript is invisible
+            // to it, and a banner nobody can follow from search is a banner
+            // half-built. Arrows and dots already stop their own clicks, so
+            // they keep working inside one.
+            const body = slide.href
+              ? `<a class="slide-link" href="${slide.href}">${img}</a>`
+              : img;
+            return `<div class="slide">${body}</div>`;
+          }).join('')}
         </div>
         ${multiple && !this.noArrows ? `
           <button class="arrow prev" aria-label="Previous">&#8249;</button>
