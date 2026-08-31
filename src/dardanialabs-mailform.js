@@ -1,8 +1,9 @@
 /**
  * Generic Mail Form Web Component
  * Contact form that submits through the platform mail API
- * (POST {api}/mail with { data: { name, mobile, email, subject, message, lang } };
- * the server resolves the tenant from the Origin header and routes the mail).
+ * (POST {api}/mail with { data: { name, mobile, email, subject, message,
+ * lang, extras } }; the server resolves the tenant from the Origin header
+ * and routes the mail).
  *
  * Validation is fully custom: per-field messages, highlight + focus on the
  * first invalid field, a tip box for the code format, live code formatting.
@@ -145,7 +146,12 @@ class DardaniaLabsMailform extends HTMLElement {
    *   { name, label, type: 'text'|'tel'|'select'|'textarea',
    *     options: [...], placeholder, required }
    * label / placeholder / options entries may be strings or { no, en, sq }
-   * objects. Values are folded into the message body as "Label: value" lines.
+   * objects. Filled values travel as data.extras — [{ label, value }] in
+   * declaration order, the label as this form showed it — and each becomes
+   * its own row in both letters' details card. They used to be folded into
+   * the message body as "Label: value" lines instead, and since mail HTML
+   * collapses newlines, a dropdown choice arrived glued to the visitor's
+   * first sentence.
    */
   get extraFields() {
     try {
@@ -164,7 +170,10 @@ class DardaniaLabsMailform extends HTMLElement {
   // reserved although no visible input carries it any more: it is the payload
   // key the honeypot ships under (the input itself is named hp_field), and a
   // tenant field spread over it would feed real values into the bot check.
-  static RESERVED = new Set(['name', 'first_name', 'last_name', 'mobile', 'email', 'subject', 'message', 'lang', 'company']);
+  // `extras` is reserved for the same shape of reason: it is the structured
+  // list every declared field already rides in, so a tenant field by that
+  // name would overwrite the very list carrying the others.
+  static RESERVED = new Set(['name', 'first_name', 'last_name', 'mobile', 'email', 'subject', 'message', 'lang', 'company', 'extras']);
 
   // Payload key -> the input that shows its error. Only the keys whose two
   // names differ need an entry.
@@ -318,17 +327,26 @@ class DardaniaLabsMailform extends HTMLElement {
 
     const code = this.requireCode ? this.field('code').value.trim() : '';
     // An extra field named "subject" becomes the mail's actual subject
-    // instead of a message-body line
+    // instead of a detail row
     const extraSubject = this.extraFields.some((f) => f.name === 'subject')
       ? (this.field('x-subject')?.value || '').trim()
       : '';
-    const extraLines = this.extraFields
-      .filter((f) => f.name !== 'subject')
-      .map((f) => ({ label: this.loc(f.label), value: (this.field(`x-${f.name}`)?.value || '').trim() }))
-      .filter((x) => x.value)
-      .map((x) => `${x.label}: ${x.value}`);
-    const header = [code ? `${t.code}: ${code}` : '', ...extraLines].filter(Boolean).join('\n');
-    const message = (header ? `${header}\n\n` : '') + this.field('message').value.trim();
+    // Every declared field the visitor filled, in declaration order, each as
+    // { label, value } with the label exactly as this form showed it. The
+    // mail templates render every entry as its own labelled row in the
+    // details card of both letters, next to name and phone where a selection
+    // belongs. These lines used to be folded into the message body instead —
+    // and mail HTML collapses newlines, so "Type tjeneste: Annet" arrived
+    // glued to the visitor's first sentence. The code rides in front exactly
+    // as its header line used to; it ALSO still travels flat as data.code
+    // (see tenantFieldValues), which is what a tenant rule on `code` reads.
+    const extras = [
+      ...(code ? [{ label: t.code, value: code }] : []),
+      ...this.extraFields
+        .filter((f) => f.name !== 'subject')
+        .map((f) => ({ label: this.loc(f.label), value: (this.field(`x-${f.name}`)?.value || '').trim() }))
+        .filter((x) => x.value),
+    ];
     const payload = {
       data: {
         // Both halves, plus the composed line. The parts are what validates
@@ -343,21 +361,25 @@ class DardaniaLabsMailform extends HTMLElement {
         subject: (this.showSubject && this.field('subject')?.value.trim())
           || extraSubject
           || t.subjectDefault,
-        message,
+        // The visitor's own words and nothing else. Whatever else the form
+        // collected travels in `extras` below, labelled.
+        message: this.field('message').value.trim(),
         lang: this.lang,
         // The honeypot. It travels under `company` — the key the server has
         // always gated on — while the INPUT is named hp_field so no
         // autofiller classifies it. The full story sits on the markup in
         // render(); the short version is: do not rename either side.
         company: this.field('hp_field')?.value || '',
-        // The tenant's own fields, sent AS FIELDS and not only folded into the
-        // message body above. tenant_validators is the override layer — the
-        // server looks each rule up by field_key and reads data[field_key] — so
-        // while these travelled only inside the message text, a tenant's
-        // "required" rule read undefined and refused every submit, and a
-        // "pattern" rule quietly passed anything at all. They stay in the
-        // message too: that is what a human reads in the enquiry.
+        // The tenant's own fields, sent AS FIELDS. tenant_validators is the
+        // override layer — the server looks each rule up by field_key and
+        // reads data[field_key] — so while these travelled only inside the
+        // message text, a tenant's "required" rule read undefined and refused
+        // every submit, and a "pattern" rule quietly passed anything at all.
         ...this.tenantFieldValues(),
+        // What a human reads. Placed after the spread so the display list
+        // wins even if RESERVED ever loosens; today RESERVED already refuses
+        // a tenant field named `extras`.
+        extras,
       },
     };
 

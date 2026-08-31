@@ -198,5 +198,58 @@ for (const c of COMPONENTS) {
   }
 }
 
+// mailform: declared fields travel as structured extras — [{ label, value }]
+// in declaration order, code in front — and the message is the visitor's own
+// words. The fold into the message body is gone: that is how a dropdown
+// choice ended up glued to the first sentence of the mail.
+{
+  const el = window.document.createElement('dardanialabs-mailform');
+  el.setAttribute('lang', 'no');
+  el.setAttribute('require-code', '');
+  el.setAttribute('fields', JSON.stringify([
+    { name: 'service', label: 'Type tjeneste', type: 'select', options: ['Varmepumpe', 'Annet'], required: true },
+    { name: 'onsket_dato', label: 'Ønsket dato', type: 'text' },
+    { name: 'detaljer', label: 'Detaljer', type: 'text' }, // left empty on purpose
+  ]));
+  window.document.body.appendChild(el);
+  const q = (name) => el.shadowRoot.querySelector(`[name="${name}"]`);
+  q('firstName').value = 'Sami';
+  q('lastName').value = 'Rashiti';
+  q('email').value = 'sami@example.com';
+  q('code').value = 'ABC12';
+  q('x-service').value = 'Annet';
+  q('x-onsket_dato').value = '12.09.2026';
+  q('message').value = 'Er dette mottatt? Melding lang nok til å passere.';
+
+  let posted = null;
+  const stubFetch = async (url, options) => {
+    posted = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = stubFetch;
+  window.fetch = stubFetch;
+  try {
+    await el.submit();
+
+    check('dardanialabs-mailform: extras carry code + filled fields, labelled, in declaration order', () =>
+      JSON.stringify(posted?.data?.extras) === JSON.stringify([
+        { label: 'Kode', value: 'ABC12' },
+        { label: 'Type tjeneste', value: 'Annet' },
+        { label: 'Ønsket dato', value: '12.09.2026' },
+      ]));
+    check('dardanialabs-mailform: the message is the visitor\'s words only — nothing folded in', () =>
+      posted?.data?.message === 'Er dette mottatt? Melding lang nok til å passere.');
+    check('dardanialabs-mailform: flat field keys still ride for tenant validators', () =>
+      posted?.data?.service === 'Annet' && posted?.data?.code === 'ABC12');
+    check('dardanialabs-mailform: an empty optional field earns no extras row', () =>
+      !posted.data.extras.some((x) => x.label === 'Detaljer'));
+  } finally {
+    globalThis.fetch = realFetch;
+    window.fetch = realFetch;
+    el.remove(); // clears the post-send restore timer
+  }
+}
+
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
