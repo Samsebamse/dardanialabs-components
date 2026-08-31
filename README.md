@@ -228,16 +228,21 @@ showing one generic banner.
 - `require-code`: adds a mandatory code field — 3 letters + 2 digits by
   default (`code-pattern` overrides the regex, `code-example` the hint).
   The code is validated live (auto-uppercase, tip box, green check) and
-  prepended to the message body.
+  leads the `extras` list (below), so it heads the detail rows in the mail.
 - `show-mobile`, `show-subject`: optional extra fields.
 - `fields`: JSON array of custom inputs rendered before the message box, e.g.
   `fields='[{"name":"dates","label":{"no":"Ønsket tid","en":"Preferred dates"},"type":"text","required":true}]'`.
   Types: `text`, `tel`, `select`, `textarea`. `label`/`placeholder`/`options`
   accept plain strings or `{ no, en, sq }` objects resolved by `lang`.
-  Values are sent under their own names in `data` **and** folded into the
-  message body as "Label: value" lines — the first is what `tenant_validators`
-  gates on, the second is what a human reads in the enquiry. `required` fields
-  validate like the built-in ones. Exception: an extra field named `subject`
+  Values are sent under their own names in `data` **and** as `data.extras` —
+  `[{ label, value }]` in declaration order, labels as the form showed them.
+  The first is what `tenant_validators` gates on; the second is what a human
+  reads: the mail templates render each entry as its own labelled row in the
+  details card of both letters, next to name and phone. Nothing is folded
+  into the message any more — `data.message` is the visitor's words only.
+  (Before v1.25.0 these were folded in as "Label: value" lines, and mail HTML
+  collapses newlines, so a dropdown choice ran straight into the visitor's
+  first sentence.) `required` fields validate like the built-in ones. Exception: an extra field named `subject`
   becomes the mail's actual subject line (useful for a localized subject
   select). Names that collide with the form's own payload keys are ignored —
   see *Validation* above.
