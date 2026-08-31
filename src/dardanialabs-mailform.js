@@ -160,7 +160,10 @@ class DardaniaLabsMailform extends HTMLElement {
 
   // Payload keys the form itself owns. A tenant field may not take one of these
   // names: silently overwriting the visitor's email address with a dropdown
-  // value would be a far stranger bug than refusing the name.
+  // value would be a far stranger bug than refusing the name. `company` stays
+  // reserved although no visible input carries it any more: it is the payload
+  // key the honeypot ships under (the input itself is named hp_field), and a
+  // tenant field spread over it would feed real values into the bot check.
   static RESERVED = new Set(['name', 'first_name', 'last_name', 'mobile', 'email', 'subject', 'message', 'lang', 'company']);
 
   // Payload key -> the input that shows its error. Only the keys whose two
@@ -342,7 +345,11 @@ class DardaniaLabsMailform extends HTMLElement {
           || t.subjectDefault,
         message,
         lang: this.lang,
-        company: this.field('company')?.value || '',
+        // The honeypot. It travels under `company` — the key the server has
+        // always gated on — while the INPUT is named hp_field so no
+        // autofiller classifies it. The full story sits on the markup in
+        // render(); the short version is: do not rename either side.
+        company: this.field('hp_field')?.value || '',
         // The tenant's own fields, sent AS FIELDS and not only folded into the
         // message body above. tenant_validators is the override layer — the
         // server looks each rule up by field_key and reads data[field_key] — so
@@ -547,9 +554,26 @@ class DardaniaLabsMailform extends HTMLElement {
              autofill off-screen ones. No human ever sees or fills it; the
              server answers a filled one with a fake success and sends
              nothing. aria-hidden + tabindex keep it out of screen readers
-             and tab order. -->
+             and tab order.
+
+             The input is named "hp_field" ON PURPOSE — a token no autofill
+             heuristic can classify — and must never be renamed to anything
+             meaningful. It used to be name="company", and Chrome ignores
+             autocomplete="off" for contact profiles: it mapped that name to
+             the saved Organization and wrote it in, off-screen or not, so
+             every visitor submitting with autofill was read as a bot and
+             silently swallowed. Password managers behave the same way. The
+             PAYLOAD still sends the value under "company" (see submit());
+             that key is the server contract and did not move.
+
+             readonly is the second lock: browsers do not autofill read-only
+             inputs. It is lifted on focus (wired in render()), which nothing
+             human can give this field — off-screen, tabindex=-1 — while a
+             bot that focuses to type unlocks it for itself and walks in,
+             and one that assigns .value directly never noticed readonly in
+             the first place. The trap still snaps on both. -->
         <div style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;overflow:hidden;" aria-hidden="true">
-          <input name="company" type="text" tabindex="-1" autocomplete="off" />
+          <input name="hp_field" type="text" tabindex="-1" autocomplete="off" readonly />
         </div>
         <!-- Two fields, not one. Asking separately is the only way to say WHICH
              half is wrong, and it matches the booking form, which has always
@@ -635,6 +659,13 @@ class DardaniaLabsMailform extends HTMLElement {
 
     const root = this.shadowRoot;
     root.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
+
+    // The honeypot unlocks only for whoever manages to focus it. No human
+    // can — it sits off-screen with tabindex=-1 — so autofill meets a
+    // read-only input and moves on, while a bot that focuses to type lifts
+    // the lock itself on the way into the trap.
+    const hp = this.field('hp_field');
+    hp?.addEventListener('focus', () => hp.removeAttribute('readonly'), { once: true });
 
     // Every field the shared rules cover, checked as it is typed — mobile
     // included, which is the one that used to reach the server unchecked.

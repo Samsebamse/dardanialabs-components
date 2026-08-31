@@ -141,5 +141,62 @@ for (const c of COMPONENTS) {
     el.shadowRoot.querySelector('.label')?.textContent === 'Creating mailbox…');
 }
 
+// mailform: the honeypot cannot be autofilled, still catches a bot that
+// fills every input, and the payload key the server gates on is unchanged.
+{
+  const el = window.document.createElement('dardanialabs-mailform');
+  window.document.body.appendChild(el);
+  const q = (name) => el.shadowRoot.querySelector(`[name="${name}"]`);
+  const hp = q('hp_field');
+
+  check('dardanialabs-mailform: honeypot input is named hp_field and nothing is named company', () =>
+    Boolean(hp) && !el.shadowRoot.querySelector('[name="company"]'));
+  check('dardanialabs-mailform: honeypot starts readonly, so autofill will not write it', () =>
+    Boolean(hp) && hp.hasAttribute('readonly'));
+
+  hp.dispatchEvent(new window.Event('focus'));
+  check('dardanialabs-mailform: focusing the honeypot lifts readonly (a typing bot still gets in)', () =>
+    !hp.hasAttribute('readonly'));
+
+  // A bot fills EVERY input, the honeypot included. Capture what gets POSTed.
+  q('firstName').value = 'Sami';
+  q('lastName').value = 'Rashiti';
+  q('email').value = 'sami@example.com';
+  q('message').value = 'A message long enough to pass the shared rules.';
+  hp.value = 'Acme AS';
+
+  // The component dispatches CustomEvents after a send; hand it jsdom's so
+  // dispatchEvent recognises them.
+  globalThis.CustomEvent = window.CustomEvent;
+
+  let posted = null;
+  const stubFetch = async (url, options) => {
+    posted = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = stubFetch;
+  window.fetch = stubFetch;
+  try {
+    await el.submit();
+
+    check('dardanialabs-mailform: the payload still carries the honeypot under `company`', () =>
+      posted?.data?.company === 'Acme AS');
+    check('dardanialabs-mailform: the payload has no hp_field key of its own', () =>
+      Boolean(posted) && !('hp_field' in posted.data));
+
+    // A human — autofill included — leaves the honeypot alone.
+    posted = null;
+    hp.value = '';
+    await el.submit();
+    check('dardanialabs-mailform: a clean submission sends company as the empty string', () =>
+      posted?.data?.company === '');
+  } finally {
+    globalThis.fetch = realFetch;
+    window.fetch = realFetch;
+    el.remove(); // clears the post-send restore timer
+  }
+}
+
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
