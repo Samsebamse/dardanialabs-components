@@ -18,9 +18,28 @@
  *   --dardanialabs-radius      image corner radius      (default 12px)
  *   --dardanialabs-dots-bg     dots strip background    (default transparent)
  *   --dardanialabs-height      image area height        (default 100%)
+ *
+ * Sizes: a slide is drawn from the media library's DISPLAY variant (long edge
+ * 1200) derived from the URL it was given; the lightbox loads the ORIGINAL,
+ * because that is the one place a visitor has asked to look closely. A slide
+ * whose display variant does not exist falls back to its original on the
+ * first error. See dardanialabs-media.js for the rule.
  */
 
+/**
+ * The display-size URL for a stored image URL — a copy of displayUrl in
+ * dardanialabs-media.js, carried here because this is a classic script and
+ * cannot import it. test/smoke.mjs checks the two agree; change both.
+ */
+const displayUrl = (url) => {
+  if (typeof url !== 'string' || !url) return url;
+  if (/\.(svg|gif)(\?.*)?$/i.test(url)) return url;
+  return url.replace(/^(https?:\/\/[^/]+)\/images\//, '$1/display/images/');
+};
+
 class DardaniaLabsPhotoslider extends HTMLElement {
+  static displayUrl = displayUrl;
+
   static get observedAttributes() {
     return ['images', 'autoplay', 'object-fit', 'object-position', 'lightbox', 'alt', 'start', 'no-arrows', 'dots'];
   }
@@ -351,7 +370,10 @@ class DardaniaLabsPhotoslider extends HTMLElement {
       <div class="frame">
         <div class="track" style="transform: translateX(-${this.index * 100}%)">
           ${this.slides.map((slide, i) => {
-            const img = `<img src="${slide.url}" alt="${alt} ${i + 1}" loading="lazy" />`;
+            // The display variant in the slide, the original kept on the
+            // element for the fallback below. The lightbox reads this.images,
+            // which is the originals, and never this src.
+            const img = `<img src="${displayUrl(slide.url)}" data-original="${slide.url}" alt="${alt} ${i + 1}" loading="lazy" />`;
             // A real anchor, not a click handler. The crawler that walks these
             // sites reads hrefs — a slide navigated by JavaScript is invisible
             // to it, and a banner nobody can follow from search is a banner
@@ -390,6 +412,16 @@ class DardaniaLabsPhotoslider extends HTMLElement {
       const diff = this.touchStartX - e.changedTouches[0].screenX;
       if (Math.abs(diff) > 50) this.go(this.index + (diff > 0 ? 1 : -1));
     }, { passive: true });
+
+    // A display variant that does not exist — an image from outside the
+    // library, or one uploaded before variants were made — costs one failed
+    // request and then renders from its original, exactly as before.
+    root.querySelectorAll('.slide img').forEach((img) => {
+      img.addEventListener('error', () => {
+        const original = img.dataset.original;
+        if (original && img.getAttribute('src') !== original) img.src = original;
+      }, { once: true });
+    });
 
     if (this.lightboxEnabled) {
       root.querySelectorAll('.slide img').forEach((img) => img.addEventListener('click', () => this.openLightbox()));

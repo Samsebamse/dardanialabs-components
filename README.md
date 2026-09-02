@@ -108,6 +108,12 @@ fullscreen viewer mounts on `document.body` — so it is never trapped or made
 to flicker by an ancestor with a `transform` or `filter` (hover-animated
 cards, drop shadows).
 
+Hand it the **stored URLs** as they are. Each slide is drawn from the media
+library's display variant (`/display/images/…`, long edge 1200), derived from
+the URL it was given; the lightbox loads the original. A slide whose display
+variant does not exist falls back to its original on the first error. See
+`dardanialabs-media` below for the rule.
+
 ### Attributes
 
 | Attribute | Values | Purpose |
@@ -332,6 +338,43 @@ never `inside`; spacing between items; a measure. Tenants theme colour and
 rhythm through `--dardanialabs-rt-measure`, `-line-height`, `-block-gap`,
 `-item-gap`, `-indent`, `-bullet`, `-number`, `-marker-color`,
 `-marker-size`, `-link-color`.
+
+## `dardanialabs-media.js`
+
+The URL rules for images stored in the media library. Every image exists in
+three sizes, each derived from the original's URL — no lookup, no extra
+column:
+
+| Size | URL | Used by |
+|---|---|---|
+| original | `https://<tenant>.dardanialabs.io/images/<key>` | the lightbox, and nothing else |
+| display — long edge 1200, JPEG q80 | `…/display/images/<key>` | every grid, card, slider and detail page |
+| thumbnail — 200×200 | `…/thumbnails/images/<key>` | the CMS panel; never a public page |
+
+```js
+import { displayUrl, fallbackToOriginal } from 'https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.26.0/src/dardanialabs-media.js';
+```
+
+```html
+<img :src="displayUrl(url)" @error="fallbackToOriginal" loading="lazy" />
+```
+
+- `displayUrl(url)` — the display variant of a stored URL. Anything that is not
+  a library original under `/images/` (a video, a file, a site asset, an SVG or
+  GIF, which have no variant) comes back unchanged, so every image a page draws
+  can go through it.
+- `originalUrl(url)` — the inverse.
+- `fallbackToOriginal(event)` — an `error` handler that swaps the element to
+  its original once. A variant that does not exist costs one failed request
+  and then renders exactly as before.
+
+Loaded as a classic script, the same three are on `window.dardanialabsMedia`.
+The photoslider applies the rule on its own — slides from the display variant,
+lightbox from the original — so a site hands it the stored URLs untouched. The
+Vue sites carry a copy of this file at `src/utils/media.js` rather than
+importing it from the CDN, because a static `import` of a CDN URL puts one
+round trip in front of the whole app; `test/smoke.mjs` holds the canonical
+behaviour.
 
 ## Releasing
 

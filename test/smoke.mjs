@@ -116,6 +116,57 @@ for (const c of COMPONENTS) {
     el.getAttribute('images') === '["/img/c.jpg"]' && el.images[0] === '/img/c.jpg');
 }
 
+// media: the slide draws the display variant, the lightbox the original, and
+// the photoslider's vendored copy of the derivation agrees with the module's.
+{
+  const media = await import(pathToFileURL(path.join(srcDir, 'dardanialabs-media.js')).href);
+  const stored = 'https://bursamgold.dardanialabs.io/images/3064c724565c1702-Ferra-000-PA-1.jpg';
+  const display = 'https://bursamgold.dardanialabs.io/display/images/3064c724565c1702-Ferra-000-PA-1.jpg';
+
+  check('dardanialabs-media: displayUrl derives display/images/ from images/', () =>
+    media.displayUrl(stored) === display);
+  check('dardanialabs-media: originalUrl is the inverse', () =>
+    media.originalUrl(display) === stored && media.originalUrl(stored) === stored);
+  check('dardanialabs-media: a video, a file, a site asset and an SVG are left alone', () =>
+    media.displayUrl('https://x.dardanialabs.io/videos/a.mp4') === 'https://x.dardanialabs.io/videos/a.mp4'
+    && media.displayUrl('https://x.dardanialabs.io/files/a.pdf') === 'https://x.dardanialabs.io/files/a.pdf'
+    && media.displayUrl('/images/logo.png') === '/images/logo.png'
+    && media.displayUrl('https://x.dardanialabs.io/images/logo.svg') === 'https://x.dardanialabs.io/images/logo.svg');
+  check('dardanialabs-media: the classic-script global carries the same functions', () =>
+    globalThis.dardanialabsMedia?.displayUrl === media.displayUrl);
+
+  const Slider = window.customElements.get('dardanialabs-photoslider');
+  for (const url of [stored, 'https://x.dardanialabs.io/images/a.gif', '/local/a.jpg', 'https://x.dardanialabs.io/videos/a.mp4']) {
+    check(`dardanialabs-photoslider: displayUrl agrees with dardanialabs-media for ${url}`, () =>
+      Slider.displayUrl(url) === media.displayUrl(url));
+  }
+
+  const el = window.document.createElement('dardanialabs-photoslider');
+  el.setAttribute('images', JSON.stringify([stored]));
+  el.setAttribute('lightbox', '');
+  window.document.body.appendChild(el);
+  const slide = el.shadowRoot.querySelector('.slide img');
+  check('dardanialabs-photoslider: a slide is drawn from the display variant', () =>
+    slide?.getAttribute('src') === display);
+  check('dardanialabs-photoslider: the slide remembers its original', () =>
+    slide?.dataset.original === stored);
+  el.openLightbox();
+  check('dardanialabs-photoslider: the lightbox loads the original', () =>
+    window.document.body.querySelector('[role="dialog"] img')?.getAttribute('src') === stored);
+  el.closeLightbox();
+  slide.dispatchEvent(new window.Event('error'));
+  check('dardanialabs-photoslider: a missing display variant falls back to the original', () =>
+    slide.getAttribute('src') === stored);
+  el.remove();
+
+  // The module's own fallback, as a Vue site binds it: @error="fallbackToOriginal"
+  const img = window.document.createElement('img');
+  img.src = display;
+  media.fallbackToOriginal({ target: img });
+  check('dardanialabs-media: fallbackToOriginal swaps a display URL for its original', () =>
+    img.src === stored);
+}
+
 // (c) property path — mailform .lang and .api reflect
 {
   const el = window.document.createElement('dardanialabs-mailform');
