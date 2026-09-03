@@ -135,6 +135,21 @@ for (const c of COMPONENTS) {
   check('dardanialabs-media: the classic-script global carries the same functions', () =>
     globalThis.dardanialabsMedia?.displayUrl === media.displayUrl);
 
+  // price: a published price prints currency-first with cents only when there
+  // are any; an unpublished one is worded, in the page's language, never faked.
+  const price = await import(pathToFileURL(path.join(srcDir, 'dardanialabs-price.js')).href);
+  check('dardanialabs-price: whole and fractional prices print as the sites show them', () =>
+    price.formatPrice(272) === '€272' && price.formatPrice('1552.00') === '€1552' && price.formatPrice(163.2) === '€163.20');
+  check('dardanialabs-price: null, empty, zero and junk are no price at all', () =>
+    ['', '', '', '', ''].join('') === [null, undefined, '', 0, 'abc'].map((v) => price.formatPrice(v)).join(''));
+  check('dardanialabs-price: the on-request wording follows the language, English otherwise', () =>
+    price.priceOnRequest('sq') === 'Çmimi sipas kërkesës' && price.priceOnRequest('no') === 'Pris på forespørsel'
+    && price.priceOnRequest('en') === 'Price on request' && price.priceOnRequest('de') === 'Price on request');
+  check('dardanialabs-price: priceText prints the price when there is one and the wording when not', () =>
+    price.priceText(272, 'sq') === '€272' && price.priceText(null, 'sq') === 'Çmimi sipas kërkesës');
+  check('dardanialabs-price: the classic-script global carries the same functions', () =>
+    globalThis.dardanialabsPrice?.formatPrice === price.formatPrice);
+
   const Slider = window.customElements.get('dardanialabs-photoslider');
   for (const url of [stored, 'https://x.dardanialabs.io/images/a.gif', '/local/a.jpg', 'https://x.dardanialabs.io/videos/a.mp4']) {
     check(`dardanialabs-photoslider: displayUrl agrees with dardanialabs-media for ${url}`, () =>
