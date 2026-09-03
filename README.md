@@ -376,6 +376,30 @@ importing it from the CDN, because a static `import` of a CDN URL puts one
 round trip in front of the whole app; `test/smoke.mjs` holds the canonical
 behaviour.
 
+## `dardanialabs-price.js`
+
+How a public site prints a catalogue price, and what it says when there is
+none. A `price` column is numeric or empty, and empty means *not published* —
+most of a showroom's range is quoted on request. That wording is rendered, never
+stored: nothing is written into the column, and no structured data claims a
+price that does not exist (a Product's `offers` is omitted entirely for such a
+row — an Offer without a price earns no rich result, and a made-up or zero price
+is a Merchant Center policy problem).
+
+```js
+import { formatPrice, priceOnRequest, priceText } from 'https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.27.0/src/dardanialabs-price.js';
+```
+
+- `formatPrice(value, currency = '€')` — `272` → `€272`, `163.2` → `€163.20`;
+  `null`, `''`, `0` and anything non-numeric → `''`.
+- `priceOnRequest(lang)` — `sq` *Çmimi sipas kërkesës*, `en` *Price on request*,
+  `no` *Pris på forespørsel*; English for any other language.
+- `priceText(value, lang)` — the price when there is one, the wording when not.
+
+Loaded as a classic script, the same functions are on `window.dardanialabsPrice`.
+As with `dardanialabs-media.js`, the Vue sites carry a copy at
+`src/utils/price.js`; `test/smoke.mjs` holds the canonical behaviour.
+
 ## Releasing
 
 Published versions are immutable — the publish script refuses to overwrite an
