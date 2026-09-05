@@ -142,13 +142,18 @@ for (const c of COMPONENTS) {
     price.formatPrice(272) === '€272' && price.formatPrice('1552.00') === '€1552' && price.formatPrice(163.2) === '€163.20');
   check('dardanialabs-price: null, empty, zero and junk are no price at all', () =>
     ['', '', '', '', ''].join('') === [null, undefined, '', 0, 'abc'].map((v) => price.formatPrice(v)).join(''));
+  check('dardanialabs-price: priceValue keeps a positive number and folds everything else to null', () =>
+    price.priceValue('272') === 272 && price.priceValue(163.2) === 163.2
+    && [null, undefined, '', 0, '0', -5, 'abc', NaN].every((v) => price.priceValue(v) === null));
+  check('dardanialabs-price: priceText is never empty, whatever the server sent', () =>
+    [null, undefined, '', 0, '0', -5, 'abc', NaN].every((v) => price.priceText(v, 'en') === 'Price on request'));
   check('dardanialabs-price: the on-request wording follows the language, English otherwise', () =>
     price.priceOnRequest('sq') === 'Çmimi sipas kërkesës' && price.priceOnRequest('no') === 'Pris på forespørsel'
     && price.priceOnRequest('en') === 'Price on request' && price.priceOnRequest('de') === 'Price on request');
   check('dardanialabs-price: priceText prints the price when there is one and the wording when not', () =>
     price.priceText(272, 'sq') === '€272' && price.priceText(null, 'sq') === 'Çmimi sipas kërkesës');
   check('dardanialabs-price: the classic-script global carries the same functions', () =>
-    globalThis.dardanialabsPrice?.formatPrice === price.formatPrice);
+    globalThis.dardanialabsPrice?.formatPrice === price.formatPrice && globalThis.dardanialabsPrice?.priceValue === price.priceValue);
 
   const Slider = window.customElements.get('dardanialabs-photoslider');
   for (const url of [stored, 'https://x.dardanialabs.io/images/a.gif', '/local/a.jpg', 'https://x.dardanialabs.io/videos/a.mp4']) {

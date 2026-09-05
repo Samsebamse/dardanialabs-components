@@ -386,15 +386,25 @@ price that does not exist (a Product's `offers` is omitted entirely for such a
 row — an Offer without a price earns no rich result, and a made-up or zero price
 is a Merchant Center policy problem).
 
+The rule sits at both ends of the app, and the default is the point: a site
+normalises the column with `priceValue` where the API answer is shaped, and
+prints with `priceText` wherever a price appears. Nothing in between decides
+whether to show the wording — a missing price is `null` everywhere and the
+print function never returns an empty string, so a price slot cannot read
+``, `€`, `NaN` or `0`.
+
 ```js
-import { formatPrice, priceOnRequest, priceText } from 'https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.27.0/src/dardanialabs-price.js';
+import { priceValue, priceText, formatPrice, priceOnRequest } from 'https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.28.0/src/dardanialabs-price.js';
 ```
 
+- `priceValue(value)` — `'272'` → `272`, `163.2` → `163.2`; `null`, `''`, `0`,
+  negatives and anything non-numeric → `null`. The shape a site stores.
 - `formatPrice(value, currency = '€')` — `272` → `€272`, `163.2` → `€163.20`;
-  `null`, `''`, `0` and anything non-numeric → `''`.
+  anything `priceValue` rejects → `''`.
 - `priceOnRequest(lang)` — `sq` *Çmimi sipas kërkesës*, `en` *Price on request*,
   `no` *Pris på forespørsel*; English for any other language.
 - `priceText(value, lang)` — the price when there is one, the wording when not.
+  Never empty.
 
 Loaded as a classic script, the same functions are on `window.dardanialabsPrice`.
 As with `dardanialabs-media.js`, the Vue sites carry a copy at
