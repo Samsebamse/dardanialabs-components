@@ -337,8 +337,9 @@ class DardaniaLabsPhotoslider extends HTMLElement {
         .dots {
           display: ${multiple ? 'flex' : 'none'};
           justify-content: center;
-          gap: 8px;
-          padding: 0.6rem 0 0.45rem;
+          /* Each dot is a 24px target edge to edge, so the strip needs no gap,
+             and 7px less padding each side keeps its height as it was */
+          padding: calc(0.6rem - 7px) 0 calc(0.45rem - 7px);
           background: var(--dardanialabs-dots-bg, var(--rtek-dots-bg, transparent));
           ${this.dotsMode === 'overlay' ? `
           position: absolute;
@@ -349,17 +350,28 @@ class DardaniaLabsPhotoslider extends HTMLElement {
           z-index: 2;
           ` : ''}
         }
+        /* A 24 x 24 target (WCAG 2.5.8; a 10px button failed it) around the
+           same 10px ring, which ::before draws in the middle */
         .dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          border: 2px solid var(--dardanialabs-accent, var(--rtek-accent, #c4622d));
+          position: relative;
+          width: 24px;
+          height: 24px;
+          border: 0;
           background: transparent;
           padding: 0;
           cursor: pointer;
+        }
+        .dot::before {
+          content: "";
+          position: absolute;
+          inset: 7px;
+          box-sizing: border-box;
+          border-radius: 50%;
+          border: 2px solid var(--dardanialabs-accent, var(--rtek-accent, #c4622d));
+          background: transparent;
           transition: background 0.25s ease, transform 0.25s ease;
         }
-        .dot.active {
+        .dot.active::before {
           background: var(--dardanialabs-accent, var(--rtek-accent, #c4622d));
           transform: scale(1.2);
         }
