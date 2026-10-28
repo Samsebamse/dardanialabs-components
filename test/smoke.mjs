@@ -30,6 +30,7 @@ const COMPONENTS = [
   { file: 'dardanialabs-spinner.js', primary: 'dardanialabs-spinner', legacy: null, cssVars: false },
   { file: 'dardanialabs-datepicker.js', primary: 'dardanialabs-datepicker', legacy: null, cssVars: false },
   { file: 'dardanialabs-timepicker.js', primary: 'dardanialabs-timepicker', legacy: null, cssVars: false },
+  { file: 'dardanialabs-sidebar.js', primary: 'dardanialabs-sidebar', legacy: null, cssVars: false },
 ];
 
 // Shadow-root <style> text uses modern CSS (color-mix, nesting-ish constructs)
@@ -114,6 +115,26 @@ for (const c of COMPONENTS) {
   el.images = '["/img/c.jpg"]';
   check('dardanialabs-photoslider: .images JSON-string assignment also works', () =>
     el.getAttribute('images') === '["/img/c.jpg"]' && el.images[0] === '/img/c.jpg');
+}
+
+// (c) sidebar — its button is defined beside it, its states are properties
+// that reflect (Vue sets properties), and it connects without matchMedia
+{
+  check('dardanialabs-sidebar: the phone menu button is defined too', () =>
+    Boolean(window.customElements.get('dardanialabs-sidebar-button')));
+  const el = window.document.createElement('dardanialabs-sidebar');
+  el.collapsed = true;
+  el.account = 'owner@example.com';
+  check('dardanialabs-sidebar: .collapsed and .account reflect to attributes', () =>
+    el.hasAttribute('collapsed') && el.getAttribute('account') === 'owner@example.com');
+  window.document.body.appendChild(el);
+  check('dardanialabs-sidebar: connects and draws its account line', () =>
+    el.shadowRoot.querySelector('.mail').textContent === 'owner@example.com'
+    && window.document.documentElement.style.getPropertyValue('--dardanialabs-sidebar-width') === '64px');
+  el.collapsed = false;
+  check('dardanialabs-sidebar: unfolded, it tells the page its width', () =>
+    window.document.documentElement.style.getPropertyValue('--dardanialabs-sidebar-width') === '252px');
+  el.remove();
 }
 
 // media: the slide draws the display variant, the lightbox the original, and

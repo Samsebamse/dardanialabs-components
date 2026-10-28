@@ -25,7 +25,7 @@ fails silently: a module loaded as a classic script throws on its first
 at all.
 
 ```html
-<!-- Classic scripts: footer, photoslider, spinner, datepicker, timepicker -->
+<!-- Classic scripts: footer, photoslider, spinner, datepicker, timepicker, sidebar -->
 <script defer src="https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.17.0/src/dardanialabs-footer.js"></script>
 
 <!-- Modules — they import the shared rules, so type="module" is required -->
@@ -409,6 +409,58 @@ import { priceValue, priceText, formatPrice, priceOnRequest } from 'https://cdn.
 Loaded as a classic script, the same functions are on `window.dardanialabsPrice`.
 As with `dardanialabs-media.js`, the Vue sites carry a copy at
 `src/utils/price.js`; `test/smoke.mjs` holds the canonical behaviour.
+
+## `<dardanialabs-sidebar>`
+
+The webmail's left column as one element: the DardaniaLabs lockup on top, the
+account under it, the product's own links, a row of tools at the foot.
+
+- **Wide screens:** the crimson tab on its edge folds it to icons. Folding fades the
+  name and leaves the D where it stands on the 64px rail, drawing itself in again.
+  The fold is remembered per browser, one choice for wide windows and one for narrow
+  ones (under 1200px, folded until opened).
+- **Phones:** the page keeps its width and `<dardanialabs-sidebar-button>` (the D
+  with a small arrow, at the page's top left) opens the column as a drawer under a
+  scrim. The drawer's D stands exactly where the button's does, so the name grows
+  out of a D that stays put. The arrow after the name, the scrim, the D, a link
+  chosen and Escape close it. Focus moves in and back; the page goes inert.
+
+```html
+<dardanialabs-sidebar account="name@example.com" remember="panel">
+  <a class="sidebar-item" href="/overview" title="Overview">
+    <span class="sidebar-icon"><svg>…</svg></span>
+    <span class="sidebar-label">Overview</span>
+  </a>
+  <div slot="drawer">phone drawer only, under the account</div>
+  <a slot="foot" class="sidebar-tool" href="/settings">
+    <span class="sidebar-icon"><svg>…</svg></span>
+    <span class="sidebar-label">Settings</span>
+  </a>
+</dardanialabs-sidebar>
+
+<header style="--dardanialabs-sidebar-bar: 56px; height: var(--dardanialabs-sidebar-bar)">  <!-- phones only -->
+  <dardanialabs-sidebar-button></dardanialabs-sidebar-button>
+</header>
+```
+
+- **Links stay in the page**, where a router can own them. They are styled by a
+  sheet the script adds once, scoped to the element. A link is selected with class
+  `active` or `aria-current="page"`.
+- **Attributes** (each also a reflecting property):
+  - `account`: the address under the logo;
+  - `remember`: the localStorage key for the fold;
+  - `phone-max`: the widest phone window, default 767;
+  - `collapsed` and `open`: reflected states;
+  - `fold-label`, `unfold-label` and `close-label`: the controls' words.
+- **It tells the page** `--dardanialabs-sidebar-width` on `<html>` (252px, 64px, or
+  0 on a phone) and fires `dardanialabs-sidebar-change` with
+  `{ collapsed, open, phone }`. Elements carrying `data-dardanialabs-sidebar-page` go
+  inert under the open drawer.
+- **Theming:**
+  - colours: `--dardanialabs-sidebar-bg`, `-line`, `-text`, `-text-hi`, `-hover`,
+    `-selected`, `--dardanialabs-accent` and `--dardanialabs-accent-hot`; the
+    defaults are the webmail's dark ones;
+  - `--dardanialabs-sidebar-bar`: the phone bar's height, default 56px.
 
 ## Releasing
 
