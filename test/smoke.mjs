@@ -134,6 +134,45 @@ for (const c of COMPONENTS) {
   el.collapsed = false;
   check('dardanialabs-sidebar: unfolded, it tells the page its width', () =>
     window.document.documentElement.style.getPropertyValue('--dardanialabs-sidebar-width') === '252px');
+
+  // A line slotted as "account" stands under the address; gone, the account is plain again
+  const note = window.document.createElement('a');
+  note.slot = 'account';
+  note.href = '#replies';
+  note.textContent = 'Auto-reply is on';
+  el.appendChild(note);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  check('dardanialabs-sidebar: an account line marks the account as noted', () =>
+    el.shadowRoot.querySelector('.account').classList.contains('noted'));
+  note.remove();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  check('dardanialabs-sidebar: without it, the account is plain', () =>
+    !el.shadowRoot.querySelector('.account').classList.contains('noted'));
+
+  // A phone's open drawer: a link marked to keep it (or held by something marked) leaves it
+  // open; any other link closes it, a "#" one with a handler too, even when the link's own
+  // handler stops the click from going further up
+  el.setAttribute('phone', '');
+  const keeper = window.document.createElement('span');
+  keeper.setAttribute('data-dardanialabs-sidebar-keep', '');
+  const switchLink = window.document.createElement('a');
+  switchLink.href = '#';
+  keeper.appendChild(switchLink);
+  const groupLink = window.document.createElement('a');
+  groupLink.href = '#';
+  const folderLink = window.document.createElement('a');
+  folderLink.href = '/?_task=mail&_mbox=Sent';
+  folderLink.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); });
+  el.append(keeper, groupLink, folderLink);
+  const tap = (link) => link.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  el.open = true;
+  tap(switchLink);
+  check('dardanialabs-sidebar: a link held by something marked keep leaves the drawer open', () => el.open === true);
+  tap(groupLink);
+  check('dardanialabs-sidebar: any other link closes it, a "#" one too', () => el.open === false);
+  el.open = true;
+  tap(folderLink);
+  check('dardanialabs-sidebar: a link whose handler stops the click still closes it', () => el.open === false);
   el.remove();
 }
 

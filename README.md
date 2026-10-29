@@ -423,7 +423,10 @@ account under it, the product's own links, a row of tools at the foot.
   with a small arrow, at the page's top left) opens the column as a drawer under a
   scrim. The drawer's D stands exactly where the button's does, so the name grows
   out of a D that stays put. The arrow after the name, the scrim, the D, a link
-  chosen and Escape close it. Focus moves in and back; the page goes inert.
+  chosen and Escape close it. A link that opens something over the drawer or
+  switches something in place (a menu, the theme) leaves it open when it, or what
+  holds it, carries `data-dardanialabs-sidebar-keep`. Focus moves in and back; the
+  page goes inert.
 
 ```html
 <dardanialabs-sidebar account="name@example.com" remember="panel">
@@ -431,6 +434,7 @@ account under it, the product's own links, a row of tools at the foot.
     <span class="sidebar-icon"><svg>…</svg></span>
     <span class="sidebar-label">Overview</span>
   </a>
+  <a slot="account" href="/replies">a short line under the address</a>
   <div slot="drawer">phone drawer only, under the account</div>
   <a slot="foot" class="sidebar-tool" href="/settings">
     <span class="sidebar-icon"><svg>…</svg></span>
@@ -445,7 +449,13 @@ account under it, the product's own links, a row of tools at the foot.
 
 - **Links stay in the page**, where a router can own them. They are styled by a
   sheet the script adds once, scoped to the element. A link is selected with class
-  `active` or `aria-current="page"`.
+  `active` or `aria-current="page"`. A product with links of its own markup (the
+  webmail's Roundcube menus) slots them as they are and styles them itself: the
+  default slot lays its children out as a column, so one of them can take the
+  height that is left (`flex: 1`) and scroll inside itself.
+- **The account line:** whatever is slotted as `account` stands under the address,
+  beside the initial (the webmail's "Auto-reply is on"). Folded, it goes, and a dot
+  on the initial keeps saying there is something.
 - **Attributes** (each also a reflecting property):
   - `account`: the address under the logo;
   - `remember`: the localStorage key for the fold;
@@ -459,8 +469,12 @@ account under it, the product's own links, a row of tools at the foot.
 - **Theming:**
   - colours: `--dardanialabs-sidebar-bg`, `-line`, `-text`, `-text-hi`, `-hover`,
     `-selected`, `--dardanialabs-accent` and `--dardanialabs-accent-hot`; the
-    defaults are the webmail's dark ones;
-  - `--dardanialabs-sidebar-bar`: the phone bar's height, default 56px.
+    defaults are the webmail's dark ones, and a light column sets its own (the
+    webmail's follows its light and dark modes);
+  - `--dardanialabs-sidebar-initial`: the account's initial, default the hot accent;
+  - `--dardanialabs-sidebar-note`: the dot of a folded account line, default green;
+  - `--dardanialabs-sidebar-bar`: the phone bar's height, default 56px;
+  - no font of its own: the page's, inherited where the element stands.
 
 ## Releasing
 

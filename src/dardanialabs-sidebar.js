@@ -16,7 +16,10 @@
  *   The drawer's D stands exactly where the button's does, so it opens around
  *   a D that stays put while the name grows out of it; the arrow after the
  *   name, turned round, closes it again, as do the scrim, the D itself, a
- *   link chosen and Escape. Closing plays the opening back.
+ *   link chosen and Escape. A link that opens something over the drawer or
+ *   switches something in place (a menu, the theme) leaves it open when it,
+ *   or what holds it, carries data-dardanialabs-sidebar-keep. Closing plays
+ *   the opening back.
  *
  * Usage:
  *   <dardanialabs-sidebar account="name@example.com" remember="panel">
@@ -24,6 +27,7 @@
  *       <span class="sidebar-icon"><svg>…</svg></span>
  *       <span class="sidebar-label">Overview</span>
  *     </a>
+ *     <a slot="account" href="/replies">a short line under the address</a>
  *     <div slot="drawer">shown in a phone's drawer only, under the account</div>
  *     <a slot="foot" class="sidebar-tool" href="/settings">
  *       <span class="sidebar-icon"><svg>…</svg></span>
@@ -38,7 +42,14 @@
  * The links stay in the page, where a framework's router can own them; they
  * are styled by a sheet this script adds once, scoped to the element. A link
  * is selected with class "active" or aria-current="page" (vue-router and most
- * others set one of the two).
+ * others set one of the two). A product with links of its own markup (the
+ * webmail's) slots them as they are and styles them itself; the default slot
+ * lays its children out as a column, so one of them can take the height
+ * that is left (flex: 1) and scroll inside itself.
+ *
+ * Whatever is slotted as "account" stands under the address, a line beside
+ * the initial (the webmail's "Auto-reply is on"); folded, it goes and a dot
+ * on the initial keeps saying there is something.
  *
  * Attributes (each also a property, for frameworks that set properties):
  *   account       the address under the lockup; none, no account line
@@ -61,8 +72,12 @@
  *
  * Theming (custom properties, inherited; defaults are the webmail's dark):
  *   --dardanialabs-sidebar-bg, -line, -text, -text-hi, -hover, -selected
+ *   --dardanialabs-sidebar-initial   the account's initial (default the hot accent)
+ *   --dardanialabs-sidebar-note      the dot of a folded account line (default green)
  *   --dardanialabs-accent, --dardanialabs-accent-hot
  *   --dardanialabs-sidebar-bar   the phone's top bar height (default 56px)
+ * The element sets no font of its own: the page's, inherited from where the
+ * element stands, is the column's and its links'.
  */
 
 (() => {
@@ -86,6 +101,8 @@
     --selected: var(--dardanialabs-sidebar-selected, #22222a);
     --accent: var(--dardanialabs-accent, #d42b2b);
     --accent-hot: var(--dardanialabs-accent-hot, #ff4444);
+    --initial: var(--dardanialabs-sidebar-initial, var(--accent-hot));
+    --note: var(--dardanialabs-sidebar-note, #3fb864);
     --bar: var(--dardanialabs-sidebar-bar, 56px);
   `;
 
@@ -182,7 +199,6 @@ dardanialabs-sidebar[phone] .sidebar-tool {
   ${vars}
   position: fixed; top: 0; bottom: 0; left: 0; z-index: 100;
   display: block; width: ${OPEN}px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: var(--text-hi);
 }
 :host([collapsed]:not([phone])) { width: ${CLOSED}px; }
@@ -221,12 +237,31 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 }
 .account[hidden] { display: none; }
 .initial {
+  position: relative;
   flex: none; display: flex; align-items: center; justify-content: center;
   width: 26.6px; height: 26.6px; border-radius: 50%;
   font-size: 12.6px; font-weight: 700;
-  color: var(--accent-hot); background: color-mix(in srgb, var(--accent-hot) 16%, transparent);
+  color: var(--initial); background: color-mix(in srgb, var(--initial) 16%, transparent);
 }
 .mail { overflow: hidden; text-overflow: ellipsis; font-size: 13.3px; font-weight: 500; }
+
+/* A line under the address: the two share the initial's height, the initial
+   beside both. Folded, the line goes (and out of the keyboard's way), and a
+   dot on the initial keeps saying it. */
+.note { display: none; }
+.account.noted {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto;
+  align-content: center; column-gap: 9.8px;
+}
+.account.noted .initial { grid-row: 1 / span 2; align-self: center; }
+.account.noted .mail { grid-column: 2; line-height: 1.25; }
+.account.noted .note { display: block; grid-column: 2; min-width: 0; overflow: hidden; }
+:host([collapsed]:not([phone])) .note { visibility: hidden; transition: opacity .15s ease, visibility 0s linear .15s; }
+:host([collapsed]:not([phone])) .account.noted .initial::after {
+  content: ""; position: absolute; top: -.7px; right: -.7px;
+  width: 7.7px; height: 7.7px; border-radius: 50%;
+  background: var(--note); box-shadow: 0 0 0 2px var(--bg);
+}
 
 .drawer { display: none; }
 .body {
@@ -245,9 +280,12 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 /* Folded: the name and the address fade out quicker than the column closes,
    gone before its edge reaches them; the D draws itself in again, where it is
    (only as it folds: a page opening folded just has it) */
-.word, .mail { transition: opacity .3s ease .1s; }
+.word, .mail, .note { transition: opacity .3s ease .1s; }
 :host([collapsed]:not([phone])) .word,
-:host([collapsed]:not([phone])) .mail { opacity: 0; transition: opacity .15s ease; }
+:host([collapsed]:not([phone])) .mail,
+:host([collapsed]:not([phone])) .note { opacity: 0; }
+:host([collapsed]:not([phone])) .word,
+:host([collapsed]:not([phone])) .mail { transition: opacity .15s ease; }
 :host([folding][collapsed]:not([phone])) .lockup path { animation: draw .7s cubic-bezier(.5, 0, .2, 1) both; }
 :host([folding][collapsed]:not([phone])) .lockup .mark-c { animation-delay: .18s; }
 :host([collapsed]:not([phone])) .foot { flex-direction: column; padding: 4px 0 0; }
@@ -333,12 +371,13 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 :host([phone]:not([open])) .lockup path { animation: undraw .3s cubic-bezier(.5, 0, .2, 1) both; }
 :host([phone]:not([open])) .lockup .mark-l { animation-delay: .08s; }
 :host([phone]:not([open])) .word,
-:host([phone]:not([open])) .mail { opacity: 0; transition: opacity .2s ease; }
+:host([phone]:not([open])) .mail,
+:host([phone]:not([open])) .note { opacity: 0; transition: opacity .2s ease; }
 :host([phone]:not([open])) .back { opacity: 0; transition: opacity .15s ease .15s; }
 :host([phone]:not([open])) .back svg { transform: none; transition: transform .25s cubic-bezier(.5, 0, .2, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-  :host, .column, .scrim, .word, .mail, .back, .back svg, .toggle, .toggle::before { transition: none !important; }
+  :host, .column, .scrim, .word, .mail, .note, .back, .back svg, .toggle, .toggle::before { transition: none !important; }
   .lockup path { animation: none !important; }
 }
 `;
@@ -437,7 +476,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
             </span>
             <button class="back" type="button">${ARROW}</button>
           </div>
-          <div class="account" hidden><span class="initial" aria-hidden="true"></span><span class="mail"></span></div>
+          <div class="account" hidden><span class="initial" aria-hidden="true"></span><span class="mail"></span><span class="note"><slot name="account"></slot></span></div>
           <div class="drawer"><slot name="drawer"></slot></div>
           <div class="body" part="body"><slot></slot></div>
           <div class="foot" part="foot"><slot name="foot"></slot></div>
@@ -451,14 +490,22 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       root.querySelector('.scrim').addEventListener('click', () => this.toggleDrawer(false));
       // The D that opened the drawer closes it: the lockup's D stands where the button's was
       root.querySelector('.lockup').addEventListener('click', () => this.phone && this.toggleDrawer(false));
-      // A link chosen in the drawer puts it away
+      // A link chosen puts the drawer away, whatever its href says (the webmail's
+      // contact groups are "#" and a handler); one marked to keep it (a menu
+      // opening over it, a switch) leaves it open. Heard on the way down, so a
+      // list widget that stops its clicks (the webmail's folders) still closes it.
       this.addEventListener('click', (event) => {
-        if (this.phone && this.open && event.target.closest?.('a[href]')) this.toggleDrawer(false);
-      });
+        const link = event.target.closest?.('a[href]');
+        if (this.phone && this.open && link && !link.closest('[data-dardanialabs-sidebar-keep]')) this.toggleDrawer(false);
+      }, true);
       const foot = root.querySelector('slot[name="foot"]');
       const showFoot = () => root.querySelector('.foot').classList.toggle('filled', foot.assignedElements().length > 0);
       foot.addEventListener('slotchange', showFoot);
       showFoot();
+      const note = root.querySelector('slot[name="account"]');
+      const showNote = () => root.querySelector('.account').classList.toggle('noted', note.assignedElements().length > 0);
+      note.addEventListener('slotchange', showNote);
+      showNote();
       this._renderAccount();
       this._renderLabels();
       this._measureWord();
