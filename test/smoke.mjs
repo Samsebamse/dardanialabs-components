@@ -173,6 +173,45 @@ for (const c of COMPONENTS) {
   el.open = true;
   tap(folderLink);
   check('dardanialabs-sidebar: a link whose handler stops the click still closes it', () => el.open === false);
+
+  // The lockup: the name only without a home; with one, a link there, its event cancelled by a
+  // router that goes there itself; a phone's open drawer goes as it is chosen
+  const lockup = el.shadowRoot.querySelector('.lockup');
+  check('dardanialabs-sidebar: without a home the lockup is the name only', () =>
+    !lockup.hasAttribute('href') && lockup.getAttribute('role') === 'img');
+  el.home = '/admin/overview';
+  check('dardanialabs-sidebar: .home reflects, and the lockup links there', () =>
+    el.getAttribute('home') === '/admin/overview' && lockup.getAttribute('href') === '/admin/overview' && !lockup.hasAttribute('role'));
+  const homes = [];
+  const onHome = (event) => { homes.push(event.detail.href); event.preventDefault(); };
+  el.addEventListener('dardanialabs-sidebar-home', onHome);
+  el.open = true;
+  const chosen = new window.MouseEvent('click', { bubbles: true, cancelable: true, composed: true });
+  lockup.dispatchEvent(chosen);
+  check('dardanialabs-sidebar: the lockup chosen tells the page its home, and closes the drawer', () =>
+    homes.join() === '/admin/overview' && chosen.defaultPrevented && el.open === false);
+  const newTab = new window.MouseEvent('click', { bubbles: true, cancelable: true, composed: true, ctrlKey: true });
+  newTab.preventDefault(); // the browser's own new tab, which a test DOM would try to load
+  lockup.dispatchEvent(newTab);
+  check('dardanialabs-sidebar: a click with a key held is the browser\'s own', () => homes.length === 1);
+  el.removeEventListener('dardanialabs-sidebar-home', onHome);
+  el.home = '';
+  check('dardanialabs-sidebar: a home taken away leaves the name only again', () =>
+    !lockup.hasAttribute('href') && lockup.getAttribute('role') === 'img');
+
+  // Escape closes the drawer, unless something over it took the key first; the page's own
+  // overflow comes back as it was
+  window.document.body.style.overflow = 'scroll';
+  el.open = true;
+  check('dardanialabs-sidebar: the open drawer holds the page still', () => window.document.body.style.overflow === 'hidden');
+  const taken = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  taken.preventDefault();
+  window.document.dispatchEvent(taken);
+  check('dardanialabs-sidebar: an Escape already taken leaves the drawer open', () => el.open === true);
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  check('dardanialabs-sidebar: Escape closes it, and the page\'s overflow is its own again', () =>
+    el.open === false && window.document.body.style.overflow === 'scroll');
+  window.document.body.style.overflow = '';
   el.remove();
 }
 

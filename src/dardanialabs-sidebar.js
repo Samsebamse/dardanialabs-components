@@ -53,6 +53,9 @@
  *
  * Attributes (each also a property, for frameworks that set properties):
  *   account       the address under the lockup; none, no account line
+ *   home          where the lockup leads (the Panel's Overview), open or
+ *                 folded; on a phone it also puts the drawer away. None, the
+ *                 lockup is the name only, and a phone's D just closes it
  *   remember      a key for keeping the wide screen's fold in localStorage
  *   phone-max     the widest window that counts as a phone, px (default 767)
  *   collapsed     folded to icons, on a wide screen (reflected)
@@ -66,6 +69,9 @@
  *   --dardanialabs-sidebar-width on <html>: the column's width beside the page
  *     (252px open, 64px folded, 0 on a phone), for the page's own margin.
  *   dardanialabs-sidebar-change event, detail { collapsed, open, phone }.
+ *   dardanialabs-sidebar-home event, detail { href }, as the lockup is chosen
+ *     with a home: a page whose router goes there itself cancels it
+ *     (preventDefault), and the browser then loads nothing.
  *   While the drawer is open, elements carrying data-dardanialabs-sidebar-page
  *   are inert, so the keyboard cannot wander under the scrim, and the page
  *   does not scroll.
@@ -219,7 +225,9 @@ dardanialabs-sidebar[phone] .sidebar-tool {
   position: relative; flex: none; display: flex; align-items: center;
   height: ${CLOSED}px; overflow: hidden;
 }
-.lockup { display: block; flex: none; margin-left: calc(var(--d-x) - 66 * var(--lock-h) / 120); }
+.lockup { display: block; flex: none; margin-left: calc(var(--d-x) - 66 * var(--lock-h) / 120); color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.lockup[href] { cursor: pointer; }
+.lockup:focus-visible { outline: 2px solid var(--accent-hot); outline-offset: -2px; border-radius: 6px; }
 .lockup svg { display: block; height: var(--lock-h); width: auto; overflow: visible; }
 .lockup path { fill: none; stroke-width: 14; stroke-dasharray: 100; stroke-dashoffset: 0; }
 .mark-l { stroke: var(--accent); }
@@ -386,7 +394,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 
   class DardaniaLabsSidebar extends HTMLElement {
     static get observedAttributes() {
-      return ['account', 'collapsed', 'open', 'phone-max', 'fold-label', 'unfold-label', 'close-label'];
+      return ['account', 'home', 'collapsed', 'open', 'phone-max', 'fold-label', 'unfold-label', 'close-label'];
     }
 
     constructor() {
@@ -399,11 +407,14 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       this._resizeFrame = 0;
       this._narrow = null;
       this._locked = false;
+      this._overflow = '';
     }
 
     // Properties for frameworks that set properties; each reflects to its attribute
     get account() { return this.getAttribute('account') || ''; }
     set account(v) { v ? this.setAttribute('account', v) : this.removeAttribute('account'); }
+    get home() { return this.getAttribute('home') || ''; }
+    set home(v) { v ? this.setAttribute('home', v) : this.removeAttribute('home'); }
     get remember() { return this.getAttribute('remember') || ''; }
     set remember(v) { v ? this.setAttribute('remember', v) : this.removeAttribute('remember'); }
     get collapsed() { return this.hasAttribute('collapsed'); }
@@ -439,6 +450,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
     attributeChangedCallback(name, oldValue, newValue) {
       if (oldValue === newValue || !this.shadowRoot.firstChild) return;
       if (name === 'account') this._renderAccount();
+      else if (name === 'home') this._renderHome();
       else if (name === 'phone-max') { this._watchPhone(); this._sync(); }
       else if (name === 'collapsed' || name === 'open') this._sync(name === 'open' ? oldValue !== null : undefined);
       else this._renderLabels();
@@ -468,12 +480,12 @@ dardanialabs-sidebar[phone] .sidebar-tool {
         <style>${COLUMN_CSS}</style>
         <div class="column" part="column">
           <div class="head">
-            <span class="lockup" role="img" aria-label="DardaniaLabs">
+            <a class="lockup" aria-label="DardaniaLabs">
               <svg viewBox="0 0 560 120" focusable="false" aria-hidden="true">
                 <g transform="translate(6,10)">${D}</g>
                 <text class="word" x="118" y="79" font-size="58" font-weight="800" letter-spacing="-1.5">Dardania<tspan class="word-l">L</tspan>abs</text>
               </svg>
-            </span>
+            </a>
             <button class="back" type="button">${ARROW}</button>
           </div>
           <div class="account" hidden><span class="initial" aria-hidden="true"></span><span class="mail"></span><span class="note"><slot name="account"></slot></span></div>
@@ -488,8 +500,21 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       root.querySelector('.toggle').addEventListener('click', () => this.toggleFold());
       root.querySelector('.back').addEventListener('click', () => this.toggleDrawer(false));
       root.querySelector('.scrim').addEventListener('click', () => this.toggleDrawer(false));
-      // The D that opened the drawer closes it: the lockup's D stands where the button's was
-      root.querySelector('.lockup').addEventListener('click', () => this.phone && this.toggleDrawer(false));
+      // The D that opened the drawer closes it: the lockup's D stands where the button's was.
+      // With a home it leads there too; a router that goes there itself cancels the event, and
+      // the link then loads nothing. A click with a key held, or not the main button, is the
+      // browser's own (a new tab).
+      root.querySelector('.lockup').addEventListener('click', (event) => {
+        if (this.phone) this.toggleDrawer(false);
+        if (!this.home || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const home = new CustomEvent('dardanialabs-sidebar-home', {
+          bubbles: true,
+          composed: true,
+          cancelable: true,
+          detail: { href: this.home },
+        });
+        if (!this.dispatchEvent(home)) event.preventDefault();
+      });
       // A link chosen puts the drawer away, whatever its href says (the webmail's
       // contact groups are "#" and a handler); one marked to keep it (a menu
       // opening over it, a switch) leaves it open. Heard on the way down, so a
@@ -507,6 +532,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       note.addEventListener('slotchange', showNote);
       showNote();
       this._renderAccount();
+      this._renderHome();
       this._renderLabels();
       this._measureWord();
       document.fonts?.ready?.then(() => this._measureWord());
@@ -519,6 +545,18 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       account.title = mail;
       account.querySelector('.initial').textContent = mail ? mail.charAt(0).toUpperCase() : '';
       account.querySelector('.mail').textContent = mail;
+    }
+
+    // A link with a home; without one, the name only (no href: not a link, out of the tab order)
+    _renderHome() {
+      const lockup = this.shadowRoot.querySelector('.lockup');
+      if (this.home) {
+        lockup.setAttribute('href', this.home);
+        lockup.removeAttribute('role');
+      } else {
+        lockup.removeAttribute('href');
+        lockup.setAttribute('role', 'img');
+      }
     }
 
     _renderLabels() {
@@ -597,8 +635,9 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       } catch { /* kept for this page only */ }
     }
 
+    // A menu or dialog open over the drawer takes its own Escape first, and says so (preventDefault)
     _onKeydown(event) {
-      if (event.key === 'Escape' && this.phone && this.open) this.toggleDrawer(false);
+      if (event.key === 'Escape' && !event.defaultPrevented && this.phone && this.open) this.toggleDrawer(false);
     }
 
     // The page under the open drawer: still, and out of the keyboard's reach
@@ -606,7 +645,13 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       // Only what this element locked is unlocked: a dialog's own lock stays its own
       if (this._locked === locked) return;
       this._locked = locked;
-      document.body.style.overflow = locked ? 'hidden' : '';
+      // ...and the page's own overflow comes back as it was
+      if (locked) {
+        this._overflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = this._overflow;
+      }
       document.querySelectorAll('[data-dardanialabs-sidebar-page]').forEach((el) => {
         if (locked) el.setAttribute('inert', '');
         else el.removeAttribute('inert');

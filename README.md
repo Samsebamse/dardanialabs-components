@@ -458,6 +458,9 @@ account under it, the product's own links, a row of tools at the foot.
   on the initial keeps saying there is something.
 - **Attributes** (each also a reflecting property):
   - `account`: the address under the logo;
+  - `home`: where the logo leads (the Panel's Overview), open or folded; on a phone
+    it also puts the drawer away. Without one the logo is the name only, and a
+    phone's D just closes the drawer;
   - `remember`: the localStorage key for the fold;
   - `phone-max`: the widest phone window, default 767;
   - `collapsed` and `open`: reflected states;
@@ -465,7 +468,9 @@ account under it, the product's own links, a row of tools at the foot.
 - **It tells the page** `--dardanialabs-sidebar-width` on `<html>` (252px, 64px, or
   0 on a phone) and fires `dardanialabs-sidebar-change` with
   `{ collapsed, open, phone }`. Elements carrying `data-dardanialabs-sidebar-page` go
-  inert under the open drawer.
+  inert under the open drawer. With a `home`, choosing the logo fires
+  `dardanialabs-sidebar-home` with `{ href }`: a page whose router goes there itself
+  cancels it (`preventDefault()`), and the browser loads nothing.
 - **Theming:**
   - colours: `--dardanialabs-sidebar-bg`, `-line`, `-text`, `-text-hi`, `-hover`,
     `-selected`, `--dardanialabs-accent` and `--dardanialabs-accent-hot`; the
