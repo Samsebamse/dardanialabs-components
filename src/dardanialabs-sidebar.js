@@ -6,9 +6,12 @@
  *
  *   A wide screen folds it to icons with the crimson tab on its edge. Folding
  *   fades the name and leaves the D where it stands, on the folded rail's
- *   centre line, drawing itself in again. The choice is remembered per
- *   browser, one for wide windows and one for narrow ones (under 1200px,
- *   folded until opened), as the webmail does.
+ *   centre line, drawing itself in again. The links fold with the column, in
+ *   its time: each pill narrows round its icon while the label fades, and the
+ *   tools at the foot, which change their layout, step out while it moves and
+ *   come back where it stops. The choice is remembered per browser, one for
+ *   wide windows and one for narrow ones (under 1200px, folded until opened),
+ *   as the webmail does.
  *
  *   A phone keeps the page the whole width. The column waits past the left
  *   edge until <dardanialabs-sidebar-button> (the D with a small arrow after
@@ -63,11 +66,16 @@
  *   fold-label, unfold-label, close-label
  *                 words for the controls (default English)
  *
- * The element also marks itself `phone` while the window is a phone's.
+ * The element also marks itself `phone` while the window is a phone's, and
+ * `moving` while the wide column folds or unfolds (what cannot follow it can
+ * step out meanwhile, as the foot's tools do).
  *
  * What it tells the page:
  *   --dardanialabs-sidebar-width on <html>: the column's width beside the page
  *     (252px open, 64px folded, 0 on a phone), for the page's own margin.
+ *   --dardanialabs-sidebar-fold on <html>: the fold's duration and easing, for
+ *     the transition of that margin, so the page moves with the column (0s for
+ *     a reader who asks for less motion).
  *   dardanialabs-sidebar-change event, detail { collapsed, open, phone }.
  *   dardanialabs-sidebar-home event, detail { href }, as the lockup is chosen
  *     with a home: a page whose router goes there itself cancels it
@@ -90,6 +98,9 @@
   const OPEN = 252;     // the webmail's 18rem on its 14px root
   const CLOSED = 64;    // 4.6rem
   const NARROW = 1200;  // under this, a wide screen starts folded
+  // The fold's one time: the column, its links and the page beside it move in it
+  const FOLD_MS = 300;
+  const FOLD = `${FOLD_MS}ms cubic-bezier(.4, 0, .2, 1)`;
 
   // The D's strokes on a 100-unit canvas; the arrow on the D's own canvas,
   // three fifths of the D's height (whose ink runs 5 to 91) on its middle line
@@ -118,8 +129,13 @@
   // label, a row of tiles; folded, a stack of icons.
   // Every rule says what a page's own link rules might otherwise add (a
   // transition on every property, a glow on hover): the pills move with the
-  // column, not after it.
+  // column, not after it, and only in what the fold changes.
   const PAGE_CSS = `
+:root { --dardanialabs-sidebar-fold: ${FOLD}; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --dardanialabs-sidebar-fold: 0s; }
+}
+
 dardanialabs-sidebar .sidebar-item {
   display: flex; align-items: center; gap: 14px;
   height: 40px; margin: 0 10.5px 0 0; padding: 0 17.5px;
@@ -154,11 +170,19 @@ dardanialabs-sidebar .sidebar-icon {
 }
 dardanialabs-sidebar .sidebar-label { overflow: hidden; text-overflow: ellipsis; }
 
+/* Folded: the pill narrows round its icon, which the padding stands on the
+   rail's centre line (the rail's 63px inside its edge, less the margins and
+   the 21px icon, halved), so the icon slides there rather than jumping. The
+   width keeps its 100%, which follows the column as it moves. The label
+   fades where it stands, and while the column moves or stays folded it keeps
+   its width, cut off by the pill's edge rather than squeezed to an ellipsis. */
 dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-item {
-  justify-content: center; gap: 0; width: calc(100% - 15.4px);
-  margin: 0 7.7px; padding: 0; border-radius: 20px;
+  width: calc(100% - 15.4px);
+  margin: 0 7.7px; padding: 0 0 0 13.3px; border-radius: 20px;
 }
-dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-item .sidebar-label { display: none; }
+dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-item .sidebar-label { opacity: 0; }
+dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-item .sidebar-label,
+dardanialabs-sidebar[moving]:not([phone]) .sidebar-item .sidebar-label { flex: none; }
 
 dardanialabs-sidebar .sidebar-tool {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
@@ -181,6 +205,20 @@ dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-tool {
   flex: none; justify-content: center; height: 40px; margin: 0 7.7px; padding: 0;
 }
 dardanialabs-sidebar[collapsed]:not([phone]) .sidebar-tool .sidebar-label { display: none; }
+
+/* The fold, after the first paint and for a reader who has not asked for
+   less motion: the pills in the column's time, the labels fading as the name
+   does. A row of tiles cannot glide into a stack, so the tools step out at
+   once and fade in, in their new layout, when the column has arrived. */
+@media (prefers-reduced-motion: no-preference) {
+  dardanialabs-sidebar[ready]:not([phone]) .sidebar-item {
+    transition: width ${FOLD}, margin ${FOLD}, padding ${FOLD}, border-radius ${FOLD};
+  }
+  dardanialabs-sidebar[ready]:not([phone]) .sidebar-item .sidebar-label { transition: opacity .3s ease .1s; }
+  dardanialabs-sidebar[ready][collapsed]:not([phone]) .sidebar-item .sidebar-label { transition: opacity .15s ease; }
+  dardanialabs-sidebar[ready]:not([phone]) .sidebar-tool { transition: opacity .15s ease; }
+  dardanialabs-sidebar[moving]:not([phone]) .sidebar-tool { opacity: 0; transition: none; }
+}
 
 /* A phone's drawer: rows at the touch minimum (44px), the tools taller */
 dardanialabs-sidebar[phone] .sidebar-item {
@@ -208,7 +246,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
   color: var(--text-hi);
 }
 :host([collapsed]:not([phone])) { width: ${CLOSED}px; }
-:host([ready]:not([phone])) { transition: width .2s ease; }
+:host([ready]:not([phone])) { transition: width ${FOLD}; }
 
 .column {
   position: absolute; inset: 0;
@@ -282,7 +320,10 @@ dardanialabs-sidebar[phone] .sidebar-tool {
   border-top: 1px solid var(--line); box-sizing: border-box;
 }
 .foot:not(.filled) { display: none; }
-:host([collapsed]:not([phone])) .foot { height: auto; }
+/* Folded, the tools stand one under another, 40px each (--tools, their count),
+   under the line and 4px of air: a height the fold can glide to */
+:host([collapsed]:not([phone])) .foot { height: calc(5px + var(--tools, 0) * 40px); }
+:host([ready]:not([phone])) .foot { transition: height ${FOLD}; }
 :host([phone]) .foot { height: auto; margin: 4.2px 0 5.6px; }
 
 /* Folded: the name and the address fade out quicker than the column closes,
@@ -385,7 +426,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 :host([phone]:not([open])) .back svg { transform: none; transition: transform .25s cubic-bezier(.5, 0, .2, 1); }
 
 @media (prefers-reduced-motion: reduce) {
-  :host, .column, .scrim, .word, .mail, .note, .back, .back svg, .toggle, .toggle::before { transition: none !important; }
+  :host, .column, .scrim, .word, .mail, .note, .foot, .back, .back svg, .toggle, .toggle::before { transition: none !important; }
   .lockup path { animation: none !important; }
 }
 `;
@@ -404,6 +445,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       this._onPhoneChange = this._onPhoneChange.bind(this);
       this._onResize = this._onResize.bind(this);
       this._foldingTimer = null;
+      this._movingTimer = null;
       this._resizeFrame = 0;
       this._narrow = null;
       this._locked = false;
@@ -444,6 +486,8 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       cancelAnimationFrame(this._resizeFrame);
       this._phoneQuery?.removeEventListener('change', this._onPhoneChange);
       clearTimeout(this._foldingTimer);
+      clearTimeout(this._movingTimer);
+      boolAttr(this, 'moving', false);
       this._setPageLocked(false);
     }
 
@@ -452,7 +496,8 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       if (name === 'account') this._renderAccount();
       else if (name === 'home') this._renderHome();
       else if (name === 'phone-max') { this._watchPhone(); this._sync(); }
-      else if (name === 'collapsed' || name === 'open') this._sync(name === 'open' ? oldValue !== null : undefined);
+      else if (name === 'collapsed') { this._move(); this._sync(); }
+      else if (name === 'open') this._sync(oldValue !== null);
       else this._renderLabels();
     }
 
@@ -473,6 +518,16 @@ dardanialabs-sidebar[phone] .sidebar-tool {
     toggleDrawer(force) {
       if (!this.phone) return;
       this.open = typeof force === 'boolean' ? force : !this.open;
+    }
+
+    // The wide column folding or unfolding, by the tab or not (the window
+    // crossing 1200px, a framework's property), says so for the fold's time;
+    // a page that opens folded, or a phone, has nothing moving
+    _move() {
+      if (!this.hasAttribute('ready') || this.phone) return;
+      boolAttr(this, 'moving', true);
+      clearTimeout(this._movingTimer);
+      this._movingTimer = setTimeout(() => boolAttr(this, 'moving', false), FOLD_MS);
     }
 
     _render() {
@@ -524,7 +579,12 @@ dardanialabs-sidebar[phone] .sidebar-tool {
         if (this.phone && this.open && link && !link.closest('[data-dardanialabs-sidebar-keep]')) this.toggleDrawer(false);
       }, true);
       const foot = root.querySelector('slot[name="foot"]');
-      const showFoot = () => root.querySelector('.foot').classList.toggle('filled', foot.assignedElements().length > 0);
+      const showFoot = () => {
+        const tools = foot.assignedElements().length;
+        const box = root.querySelector('.foot');
+        box.classList.toggle('filled', tools > 0);
+        box.style.setProperty('--tools', String(tools));
+      };
       foot.addEventListener('slotchange', showFoot);
       showFoot();
       const note = root.querySelector('slot[name="account"]');

@@ -417,8 +417,11 @@ account under it, the product's own links, a row of tools at the foot.
 
 - **Wide screens:** the crimson tab on its edge folds it to icons. Folding fades the
   name and leaves the D where it stands on the 64px rail, drawing itself in again.
-  The fold is remembered per browser, one choice for wide windows and one for narrow
-  ones (under 1200px, folded until opened).
+  The links fold with the column, in its time: each pill narrows round its icon while
+  the label fades, and the foot's tools, which change their layout, step out while it
+  moves (the element marks itself `moving`) and fade back in where it stops. The fold
+  is remembered per browser, one choice for wide windows and one for narrow ones
+  (under 1200px, folded until opened).
 - **Phones:** the page keeps its width and `<dardanialabs-sidebar-button>` (the D
   with a small arrow, at the page's top left) opens the column as a drawer under a
   scrim. The drawer's D stands exactly where the button's does, so the name grows
@@ -466,7 +469,10 @@ account under it, the product's own links, a row of tools at the foot.
   - `collapsed` and `open`: reflected states;
   - `fold-label`, `unfold-label` and `close-label`: the controls' words.
 - **It tells the page** `--dardanialabs-sidebar-width` on `<html>` (252px, 64px, or
-  0 on a phone) and fires `dardanialabs-sidebar-change` with
+  0 on a phone) and `--dardanialabs-sidebar-fold`, the fold's duration and easing
+  (`0s` for a reader who asks for less motion), for the transition of the page's own
+  margin: `transition: margin-left var(--dardanialabs-sidebar-fold)`. It fires
+  `dardanialabs-sidebar-change` with
   `{ collapsed, open, phone }`. Elements carrying `data-dardanialabs-sidebar-page` go
   inert under the open drawer. With a `home`, choosing the logo fires
   `dardanialabs-sidebar-home` with `{ href }`: a page whose router goes there itself

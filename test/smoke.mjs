@@ -134,6 +134,28 @@ for (const c of COMPONENTS) {
   el.collapsed = false;
   check('dardanialabs-sidebar: unfolded, it tells the page its width', () =>
     window.document.documentElement.style.getPropertyValue('--dardanialabs-sidebar-width') === '252px');
+  check('dardanialabs-sidebar: the page sheet tells the page the fold\'s time', () =>
+    window.document.getElementById('dardanialabs-sidebar-style').textContent.includes('--dardanialabs-sidebar-fold:'));
+
+  // A fold after the first paint (ready, two frames on) marks the element moving for the fold's
+  // time, so what cannot follow the column can step out meanwhile
+  for (let i = 0; i < 25 && !el.hasAttribute('ready'); i += 1) await new Promise((resolve) => setTimeout(resolve, 20));
+  el.toggleFold();
+  check('dardanialabs-sidebar: a fold marks it moving', () => el.collapsed && el.hasAttribute('moving'));
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  check('dardanialabs-sidebar: the mark goes when the column has arrived', () => !el.hasAttribute('moving'));
+  el.toggleFold();
+
+  // The foot knows how many tools it holds: folded, they stand one under another
+  const tool = window.document.createElement('a');
+  tool.slot = 'foot';
+  tool.className = 'sidebar-tool';
+  tool.href = '#settings';
+  el.appendChild(tool);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  check('dardanialabs-sidebar: the foot counts its tools', () =>
+    el.shadowRoot.querySelector('.foot').style.getPropertyValue('--tools') === '1');
+  tool.remove();
 
   // A line slotted as "account" stands under the address; gone, the account is plain again
   const note = window.document.createElement('a');
