@@ -1,7 +1,7 @@
 /**
- * dardanialabs-richtext.js — the one way CMS text becomes formatted markup.
+ * dardanialabs-richtext.js — the one way Panel text becomes formatted markup.
  *
- * Tenant sites used to drop CMS values straight into a template string and
+ * Tenant sites used to drop Panel values straight into a template string and
  * assign the result to innerHTML. That made every plain-text field a markup
  * field, and tenants noticed: they started typing their own pseudo-markup —
  * "• Item<br/>" — because it was the only way to get a list. Hand-made bullets
@@ -100,7 +100,7 @@ const NUMBER_LINE = /^[ \t]*(\d+)\.[ \t]+(.*)$/;
 // for the same reason as above, so "#tag" stays a literal hashtag.
 const HEADING_LINE = /^[ \t]*(#{1,2})[ \t]+(.*)$/;
 
-// Where those two levels land in the page's own outline. A CMS field is
+// Where those two levels land in the page's own outline. A Panel field is
 // rendered inside something that already has a title, so the default starts at
 // h3 and a caller that sits deeper passes its own base. Headings never become
 // h1 or h2: those belong to the page, and a service card minting a second h1
@@ -116,7 +116,7 @@ const MAX_HEADING_LEVEL = 6;
 const INLINE_SOURCE = '\\*\\*([^\\n]+?)\\*\\*|\\*([^\\n*]+?)\\*|\\[([^\\]\\n]*)\\]\\(([^\\s()]*)\\)';
 
 // Safety rule 2. Scheme-relative "//host" and relative paths fail this too,
-// which is intended: a CMS field is not the place to build site navigation.
+// which is intended: a Panel field is not the place to build site navigation.
 const SAFE_HREF = /^https:\/\//i;
 
 // Nesting has no legitimate use past a couple of levels; the cap only exists so
@@ -184,7 +184,7 @@ const appendBlocks = (doc, target, text, headingBase = DEFAULT_HEADING_BASE) => 
 		if (!prose) return;
 		const p = doc.createElement('p');
 		p.className = CLASSES.paragraph;
-		// Joined with a space, never a <br>: a newline in a CMS textarea is where
+		// Joined with a space, never a <br>: a newline in a Panel textarea is where
 		// the box happened to wrap, not a decision about where the line ends.
 		appendInline(doc, p, prose.join(' '));
 		target.appendChild(p);

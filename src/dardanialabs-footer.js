@@ -88,7 +88,7 @@
  *   <!-- any endpoint, any shape -->
  *   <x-footer src="https://example.com/social.json"></x-footer>
  *
- *   <!-- convenience for a DardaniaLabs CMS tenant -->
+ *   <!-- convenience for a DardaniaLabs Panel tenant -->
  *   <x-footer client-id="rec_…" api="https://api.dardanialabs.io/v1/public"></x-footer>
  *
  * Accepted response shapes (all handled):
@@ -171,7 +171,7 @@ let PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 // each one overrides. Aliases land on one stored key — whichever spelling a
 // tenant adds, it works. 'founded'/'established' feed the copyright's
 // "start year - current year" range, so the whole line can be corrected
-// from the CMS without a redeploy.
+// from the Panel without a redeploy.
 const IDENTITY_ROWS = {
   legal_name: 'legal-name',
   company_number: 'company-number',
@@ -253,7 +253,7 @@ class DardaniaLabsFooter extends HTMLElement {
 
   constructor() {
     super();
-    this._remote = {};   // values loaded from the CMS
+    this._remote = {};   // values loaded from the Panel
     this._loaded = false; // fetch runs once per element
   }
 
@@ -440,7 +440,7 @@ class DardaniaLabsFooter extends HTMLElement {
 
   /* ---------- value resolution ---------- */
 
-  // CMS value wins; the attribute is the fallback.
+  // Panel value wins; the attribute is the fallback.
   valueFor(key) {
     return (this._remote[key] || this.getAttribute(key) || '').trim();
   }
@@ -504,7 +504,7 @@ class DardaniaLabsFooter extends HTMLElement {
     return `https://${value.replace(/^\/+/, '')}`;
   }
 
-  /* ---------- CMS ---------- */
+  /* ---------- Panel ---------- */
 
   // Identity values (the registered name above all) keep EVERY language they
   // arrived with, so the render can pick the reading that matches the page.
@@ -551,7 +551,7 @@ class DardaniaLabsFooter extends HTMLElement {
   }
 
   // Pull platform -> value out of whatever shape the endpoint returned, so
-  // this works against any backend, not just the DardaniaLabs CMS.
+  // this works against any backend, not just the DardaniaLabs Panel.
   static extractSocials(payload) {
     const out = {};
     const rows = Array.isArray(payload) ? payload

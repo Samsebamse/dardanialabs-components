@@ -7,11 +7,11 @@
  *
  *   https://<tenant>.dardanialabs.io/images/<key>              original
  *   https://<tenant>.dardanialabs.io/display/images/<key>      long edge 1200, JPEG q80
- *   https://<tenant>.dardanialabs.io/thumbnails/images/<key>   200×200, the CMS panel's
+ *   https://<tenant>.dardanialabs.io/thumbnails/images/<key>   200×200, the Panel's
  *
  * A public site draws grids, cards, sliders and detail pages from the DISPLAY
  * variant. The original is loaded in exactly one place: the lightbox, where
- * someone has deliberately asked to look closely. The thumbnail is the CMS
+ * someone has deliberately asked to look closely. The thumbnail is the Panel
  * panel's and is never used on a public page.
  *
  * Usage as a module (Vue sites):

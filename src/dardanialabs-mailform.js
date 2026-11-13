@@ -181,11 +181,11 @@ class DardaniaLabsMailform extends HTMLElement {
 
   /**
    * The tenant's own fields as payload entries, keyed by the plain field name
-   * the CMS stores in tenant_validators.field_key — `x-` is only how the input
+   * the Panel stores in tenant_validators.field_key — `x-` is only how the input
    * is named inside the shadow DOM, and is not part of the contract.
    *
    * The code is included under its own key for the same reason: a tenant rule
-   * on `code` has always been readable by the CMS but was never sent, so it
+   * on `code` has always been readable by the Panel but was never sent, so it
    * matched against nothing.
    */
   tenantFieldValues() {

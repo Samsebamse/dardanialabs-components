@@ -188,7 +188,7 @@ const render = (text, options) => renderInto(dom.window.document.createElement('
 // ── The ordinal rule: a date at the start of a line is not a list ──
 {
 	// Norwegian writes dates exactly the way a numbered list starts, and this
-	// is opening-hours text — the content the CMS help panel showcases.
+	// is opening-hours text — the content the Panel's help showcases.
 	const date = render('14. august stenger vi kl 16.');
 	check('a date line is prose, not a list', () => date.querySelector('ol') === null);
 	check('a date keeps its own number', () =>

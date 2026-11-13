@@ -85,7 +85,7 @@ the spelling where the label has one (`Org. no.` in English), never which
 label. A register the component has no entry for renders the bare number
 rather than a guessed abbreviation.
 
-Values may equally come from the CMS: `company_number` (aliases
+Values may equally come from the Panel: `company_number` (aliases
 `legal_number`, `org_number`), `registry`, `legal_name`, `founded`. A value
 that still arrives with its label baked in — `NUI 812451269` — is printed as
 it stands, so a site works before, during and after that data is migrated.
@@ -272,8 +272,8 @@ Theming (pre-rename `--rtek-*` names still honored as fallbacks):
 
 ## `dardanialabs-richtext.js`
 
-A plain ES module (no custom element) that turns a CMS text field into real
-markup. Use it **everywhere a CMS value used to reach `innerHTML`** — that
+A plain ES module (no custom element) that turns a Panel text field into real
+markup. Use it **everywhere a Panel value used to reach `innerHTML`** — that
 habit turned every plain-text field into a markup field, and tenants answered
 it by typing their own pseudo-markup (`• Item<br/>`), which is neither a list
 nor styleable nor announced as a list by a screen reader.
@@ -349,7 +349,7 @@ column:
 |---|---|---|
 | original | `https://<tenant>.dardanialabs.io/images/<key>` | the lightbox, and nothing else |
 | display — long edge 1200, JPEG q80 | `…/display/images/<key>` | every grid, card, slider and detail page |
-| thumbnail — 200×200 | `…/thumbnails/images/<key>` | the CMS panel; never a public page |
+| thumbnail — 200×200 | `…/thumbnails/images/<key>` | the Panel; never a public page |
 
 ```js
 import { displayUrl, fallbackToOriginal } from 'https://cdn.jsdelivr.net/gh/Samsebamse/dardanialabs-components@v1.26.0/src/dardanialabs-media.js';
@@ -516,7 +516,7 @@ existing version.
   hover-animated cards and drop-shadow wrappers create constantly. Fixed
   positioning containing blocks are a spec behavior, not a browser bug;
   appending the overlay to `document.body` is the fix.
-- **A CMS value never reaches `innerHTML` or `v-html`.** Use
+- **A Panel value never reaches `innerHTML` or `v-html`.** Use
   `dardanialabs-richtext.js`. Injecting the value silently redefines every
   plain-text field as a markup field, and tenants then fill those fields with
   pseudo-markup because it is the only formatting they have — which is how
