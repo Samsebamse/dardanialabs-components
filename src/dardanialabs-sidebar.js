@@ -59,6 +59,8 @@
  *   home          where the lockup leads (the Panel's Overview), open or
  *                 folded; on a phone it also puts the drawer away. None, the
  *                 lockup is the name only, and a phone's D just closes it
+ *   service       the product's word under the name, in grey capitals
+ *                 ("Panel", "Webmail"); none, the plain lockup
  *   remember      a key for keeping the wide screen's fold in localStorage
  *   phone-max     the widest window that counts as a phone, px (default 767)
  *   collapsed     folded to icons, on a wide screen (reflected)
@@ -88,6 +90,7 @@
  *   --dardanialabs-sidebar-bg, -line, -text, -text-hi, -hover, -selected
  *   --dardanialabs-sidebar-initial   the account's initial (default the hot accent)
  *   --dardanialabs-sidebar-note      the dot of a folded account line (default green)
+ *   --dardanialabs-sidebar-service   the service word (default the column's text)
  *   --dardanialabs-accent, --dardanialabs-accent-hot
  *   --dardanialabs-sidebar-bar   the phone's top bar height (default 56px)
  * The element sets no font of its own: the page's, inherited from where the
@@ -120,6 +123,7 @@
     --accent-hot: var(--dardanialabs-accent-hot, #ff4444);
     --initial: var(--dardanialabs-sidebar-initial, var(--accent-hot));
     --note: var(--dardanialabs-sidebar-note, #3fb864);
+    --service: var(--dardanialabs-sidebar-service, var(--text));
     --bar: var(--dardanialabs-sidebar-bar, 56px);
   `;
 
@@ -272,6 +276,11 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 .mark-c { stroke: var(--text-hi); }
 .word { fill: var(--text-hi); font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
 .word-l { fill: var(--accent); }
+/* The service word: under the name, from its first letter, inside the same
+   canvas (its capitals stand at y 90-106), so nothing else moves for it. It
+   comes and goes with the name. */
+.word.service { fill: var(--service); }
+.word.service:empty { display: none; }
 .back { display: none; }
 
 /* The account: an initial on the same centre line as the D, then the address */
@@ -435,7 +444,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
 
   class DardaniaLabsSidebar extends HTMLElement {
     static get observedAttributes() {
-      return ['account', 'home', 'collapsed', 'open', 'phone-max', 'fold-label', 'unfold-label', 'close-label'];
+      return ['account', 'home', 'service', 'collapsed', 'open', 'phone-max', 'fold-label', 'unfold-label', 'close-label'];
     }
 
     constructor() {
@@ -457,6 +466,8 @@ dardanialabs-sidebar[phone] .sidebar-tool {
     set account(v) { v ? this.setAttribute('account', v) : this.removeAttribute('account'); }
     get home() { return this.getAttribute('home') || ''; }
     set home(v) { v ? this.setAttribute('home', v) : this.removeAttribute('home'); }
+    get service() { return this.getAttribute('service') || ''; }
+    set service(v) { v ? this.setAttribute('service', v) : this.removeAttribute('service'); }
     get remember() { return this.getAttribute('remember') || ''; }
     set remember(v) { v ? this.setAttribute('remember', v) : this.removeAttribute('remember'); }
     get collapsed() { return this.hasAttribute('collapsed'); }
@@ -495,6 +506,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       if (oldValue === newValue || !this.shadowRoot.firstChild) return;
       if (name === 'account') this._renderAccount();
       else if (name === 'home') this._renderHome();
+      else if (name === 'service') this._renderService();
       else if (name === 'phone-max') { this._watchPhone(); this._sync(); }
       else if (name === 'collapsed') { this._move(); this._sync(); }
       else if (name === 'open') this._sync(oldValue !== null);
@@ -539,6 +551,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
               <svg viewBox="0 0 560 120" focusable="false" aria-hidden="true">
                 <g transform="translate(6,10)">${D}</g>
                 <text class="word" x="118" y="79" font-size="58" font-weight="800" letter-spacing="-1.5">Dardania<tspan class="word-l">L</tspan>abs</text>
+                <text class="word service" x="121" y="106" font-size="23" font-weight="700" letter-spacing="6"></text>
               </svg>
             </a>
             <button class="back" type="button">${ARROW}</button>
@@ -593,6 +606,7 @@ dardanialabs-sidebar[phone] .sidebar-tool {
       showNote();
       this._renderAccount();
       this._renderHome();
+      this._renderService();
       this._renderLabels();
       this._measureWord();
       document.fonts?.ready?.then(() => this._measureWord());
@@ -617,6 +631,13 @@ dardanialabs-sidebar[phone] .sidebar-tool {
         lockup.removeAttribute('href');
         lockup.setAttribute('role', 'img');
       }
+    }
+
+    // The product's word under the name, and in the lockup's spoken name
+    _renderService() {
+      const service = this.service.trim();
+      this.shadowRoot.querySelector('.service').textContent = service.toLocaleUpperCase('en');
+      this.shadowRoot.querySelector('.lockup').setAttribute('aria-label', service ? `DardaniaLabs ${service}` : 'DardaniaLabs');
     }
 
     _renderLabels() {

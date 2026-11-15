@@ -464,6 +464,8 @@ account under it, the product's own links, a row of tools at the foot.
   - `home`: where the logo leads (the Panel's Overview), open or folded; on a phone
     it also puts the drawer away. Without one the logo is the name only, and a
     phone's D just closes the drawer;
+  - `service`: the product's word under the name, in grey capitals (`Panel`,
+    `Webmail`); without one, the plain logo;
   - `remember`: the localStorage key for the fold;
   - `phone-max`: the widest phone window, default 767;
   - `collapsed` and `open`: reflected states;

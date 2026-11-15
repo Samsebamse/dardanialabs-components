@@ -221,6 +221,20 @@ for (const c of COMPONENTS) {
   check('dardanialabs-sidebar: a home taken away leaves the name only again', () =>
     !lockup.hasAttribute('href') && lockup.getAttribute('role') === 'img');
 
+  // The service word: none without the attribute; with it, capitals under the name and in the
+  // lockup's spoken name; the name stays the first .word, which the phone's arrow measures
+  const serviceWord = el.shadowRoot.querySelector('.service');
+  check('dardanialabs-sidebar: without a service the lockup is plain', () =>
+    serviceWord.textContent === '' && lockup.getAttribute('aria-label') === 'DardaniaLabs');
+  el.service = 'Panel';
+  check('dardanialabs-sidebar: .service reflects, and its word stands under the name in capitals', () =>
+    el.getAttribute('service') === 'Panel' && serviceWord.textContent === 'PANEL'
+    && lockup.getAttribute('aria-label') === 'DardaniaLabs Panel'
+    && el.shadowRoot.querySelector('.word').textContent === 'DardaniaLabs');
+  el.service = '';
+  check('dardanialabs-sidebar: a service taken away leaves the plain lockup again', () =>
+    serviceWord.textContent === '' && lockup.getAttribute('aria-label') === 'DardaniaLabs');
+
   // Escape closes the drawer, unless something over it took the key first; the page's own
   // overflow comes back as it was
   window.document.body.style.overflow = 'scroll';
